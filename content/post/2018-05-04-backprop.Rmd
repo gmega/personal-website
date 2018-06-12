@@ -1,0 +1,651 @@
+---
+title: "Backpropagation and Reverse-mode Autodiff"
+author: "Giuliano Mega"
+date: 2018-05-05T00:00:00
+categories: ["algorithms", "python", "machine learning"]
+tags: ["backpropagation", "autodiff", "neural networks"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    number_sections: yes
+    css: ../widepost.css
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(reticulate)
+library(tidyverse)
+library(expRess)
+library(DiagrammeR)
+
+knitr::knit_engines$set(python = reticulate::eng_python)
+```
+
+```{r echo=FALSE}
+render_toc <- function(
+  filename, 
+  toc_header_name = "Table of Contents",
+  base_level = NULL,
+  toc_depth = 3
+) {
+  x <- readLines(filename, warn = FALSE)
+  x <- paste(x, collapse = "\n")
+  x <- paste0("\n", x, "\n")
+  for (i in 5:3) {
+    regex_code_fence <- paste0("\n[`]{", i, "}.+?[`]{", i, "}\n")
+    x <- gsub(regex_code_fence, "", x)
+  }
+  x <- strsplit(x, "\n")[[1]]
+  x <- x[grepl("^#+", x)]
+  if (!is.null(toc_header_name)) 
+    x <- x[!grepl(paste0("^#+ ", toc_header_name), x)]
+  if (is.null(base_level))
+    base_level <- min(sapply(gsub("(#+).+", "\\1", x), nchar))
+  start_at_base_level <- FALSE
+  x <- sapply(x, function(h) {
+    level <- nchar(gsub("(#+).+", "\\1", h)) - base_level
+    if (level < 0) {
+      stop("Cannot have negative header levels. Problematic header \"", h, '" ',
+           "was considered level ", level, ". Please adjust `base_level`.")
+    }
+    if (level > toc_depth - 1) return("")
+    if (!start_at_base_level && level == 0) start_at_base_level <<- TRUE
+    if (!start_at_base_level) return("")
+    if (grepl("\\{#.+\\}(\\s+)?$", h)) {
+      # has special header slug
+      header_text <- gsub("#+ (.+)\\s+?\\{.+$", "\\1", h)
+      header_slug <- gsub(".+\\{\\s?#([-_.a-zA-Z:]+).+", "\\1", h)
+    } else if (grepl("\\{.unnumbered}(\\s+)?$", h)) {
+      header_text <- gsub("#+ (.+)\\s+?\\{.+$", "\\1", h)
+      header_slug <- paste(strsplit(header_text, " ")[[1]], collapse="-")
+      header_slug <- tolower(header_slug)
+    } else {
+      header_text <- gsub("#+\\s+?", "", h)
+      header_slug <- paste(strsplit(header_text, " ")[[1]], collapse="-")
+      header_slug <- tolower(header_slug)
+    }
+    paste0(strrep(" ", level * 4), "- [", header_text, "](#", header_slug, ")")
+  })
+  x <- x[x != ""]
+  knitr::asis_output(paste(x, collapse = "\n"))
+}
+```
+
+```{python echo=FALSE}
+import sympy
+from sympy import *
+```
+
+```{r echo=FALSE}
+int <- as.integer
+latex <- py$sympy$latex
+do_py <- function(expr) reticulate::py_eval(sprintf('latex(%s)', expr))
+```
+
+Backpropagation is a method for computing gradients of complex (as in complicated) composite functions. It is one of those things that is quite simple once you have figured out how it works (the other being [Paxos](https://en.wikipedia.org/wiki/Paxos_(computer_science))). 
+
+In this document, I will try to explain it in a way that avoids the issues I had with most of the explanations I found in textbooks and on the Internet. Inherently, this means that this document is well-suited to *my* way of thinking, but my hope is that it may also suit yours or, at the very least, may give you a different perspective as you try to grasp how backpropagation works. In particular, I avoid:
+
+* using [Leibniz notation](https://en.wikipedia.org/wiki/Notation_for_differentiation#Leibniz's_notation) as much as I can, favouring [Lagrange's notation](https://en.wikipedia.org/wiki/Notation_for_differentiation#Lagrange's_notation) instead. I specifically avoid talking about derivatives of variables and will always talk about derivatives of functions with respect to variables. I also make the parameters (inputs) of these functions explicit in my derivations whenever I can. This results in more verbose, but hopefully easier-to-understand, derivations;
+
+* talking about expression graphs too early. Most of the explanations I found start by flashing expression graphs and then explaining the derivation process from those. I found it difficult to reconcile these appeals to intuition to the actual details of the calculus underneath. I therefore take the opposite stance in this document: expression graphs are explained as a consequence of the derivations, and only at the end.
+
+The remainder of this document is organized as follows. In Sec. \@ref(sec:fw-autodiff) we talk about something called forward-mode autodiff. Indeed, backpropagation is a special case of _reverse-mode_ autodiff, and I think it comes more naturally if we have a look at forward-mode autodiff, which is simpler, first. Then, in Sec. \@ref(sec:rev-autodiff) we delve into reverse-mode autodiff proper: first by showing a very simple example, and then, after doing a recap of the [multivariable chain rule](https://en.wikipedia.org/wiki/Chain_rule#Higher_dimensions) in Sec. \@ref(sec:multivar-chain-rule), and showing that the "simple" chain rule can be seen as a special case of its multivariable sibling (Sec. \@ref(sec:unifying-chain-rule)), we work through a more complex example which introduces expression graphs and bridge those to the chain rule in Sec. \@ref(sec:expression-graphs). In the process, we compute the gradients in the example by backpropagation and compare those with the result obtained by symbolic derivation, closing off the explanation.
+
+At the end of the document, in the [Appendix](#appendix), you can find a simple reverse-mode autodiff written in Python which leverages [sympy](http://www.sympy.org).
+
+You will note that I made no mention of Neural Networks here. This is because a Neural Network is just a complex composite function: once you grasp the concepts of reverse-mode autodiff, the same concepts apply to the computation of the gradients of the hypothesis and error (loss) functions of the Neural Network as well.
+
+**Table of Contents**
+
+```{r toc, echo=FALSE} 
+render_toc("2018-05-04-backprop.Rmd")
+```
+
+$$
+\newcommand{\vecb}[1]{{\mathbf #1}}
+$$
+
+# Forward-Mode Autodiff {#sec:fw-autodiff}
+
+Suppose we had the following functions:
+
+```{python echo=FALSE}
+x, y = symbols('x y')
+def f_1(x, y):
+  return 3*(x**2) + 5*x*y + 4*(y**2)
+  
+def f_2(x):
+  return sin(x)
+  
+def f_3(x):
+  return exp(x) + sqrt(x)
+```
+
+* $f_1(x,y) = `r do_py('f_1(x, y)')`$
+* $f_2(x) = `r do_py('f_2(x)')`$
+* $f_3(x) = `r do_py('f_3(x)')`$
+
+and that we wanted to compute the derivative of the following composite function:
+
+$$
+f(x) = f_1(f_2(x), f_3(x))
+$$
+
+```{python echo = FALSE}
+f = f_1(f_2(x), f_3(x))
+```
+
+
+There are a number of ways one could go about doing that. One could, for instance, compute the derivative algebraically and arrive at a closed-form expression by, say, first replacing $x$ and $y$ by $f_2(x)$ and $f_3(x)$ in $f$:
+
+$$
+\begin{equation}
+  f(x) = `r do_py('f')`
+\end{equation}
+$$
+
+and then taking the derivative with respect to $x$:
+
+```{python echo = FALSE}
+f_dx = f.diff(x)
+```
+
+$$
+\begin{equation}
+  f^\prime(x) = `r latex(py$f_dx)`
+  (\#eq:symbolic)
+\end{equation}
+$$
+
+**Chain Rule.** Or, recalling that in Lagrange's notation we have $\frac{\partial h}{\partial x} = h^\prime$ and $\frac{\partial h}{\partial y} = h_\prime$, one could get to the same result by applying the [multivariable chain rule](https://en.wikipedia.org/wiki/Chain_rule#Higher_dimensions):
+
+$$
+\begin{equation}
+  f^\prime(x) = f_1^\prime(f_2(x), f_3(x)).f_2^\prime(x) + f_{1\prime}(f_2(x), f_3(x))\cdot f^\prime_3(x)
+  (\#eq:chainrule-1)
+\end{equation}
+$$
+
+which, if you were to expand the formula, would get you the same result as in Eq. \@ref(eq:symbolic).
+
+**Forward-Mode Autodiff.** The essence of autodiff is that, to evaluate the derivative of $f$ at some value of $x$, you do not need to compute a complete formula in advance: you can instead try to compute the formulae for a set of smaller, easier-to-compute blocks, which can then be evaluated as a sequence of steps towards the final value. Note that this will _not_ lead us to a closed-form expression of the derivative as in Eq. \@ref(eq:symbolic), but it will allow us to compute the derivative quite efficiently nevertheless: often more efficiently than with a closed-form representation.
+
+Eq. \@ref(eq:chainrule-1) already provides a hint of how this could work. We can break down the constituent parts of $f$ into set of smaller blocks which are easier to derive symbolically:
+
+```{python echo=FALSE}
+x, y, t = symbols('x y t')
+g_1 = Function('f_2')(t)
+g_2 = Function('f_3')(t)
+
+f1_dx = f_1(g_1, g_2).diff(t)
+f2_dx = f_2(x).diff(x)
+f3_dx = f_3(x).diff(x)
+```
+
+$$
+\begin{align}
+  \frac{d}{dt} f_1(f_2(t), f_3(t)) &= `r latex(py$f1_dx)`\\
+  f_2^\prime(x) &= `r latex(py$f2_dx)` \\
+  f_3^\prime(x) &= `r latex(py$f3_dx)`
+\end{align}
+$$
+
+and then, supposing we wanted to compute the derivative of $f_1(f_2(x), f_3(x))$ at the point $x = 1$, we can simply start with the blocks that depend directly on $x$:
+
+```{python}
+f3_dx_1 = f3_dx.subs({'x': 1.0})
+f2_dx_1 = f2_dx.subs({'x': 1.0})
+f3_1 = f_3(1.0)
+f2_1 = f_2(1.0)
+```
+
+$$
+\begin{align}
+  f_3^\prime(1) &=& `r latex(py$f3_dx$subs(list(x = 1)))`\\
+  f_2^\prime(1) &=& `r latex(py$f2_dx$subs(list(x = 1)))`\\
+  f_3(1) &=& `r latex(py$f_3(1))` \\
+  f_2(1) &=& `r latex(py$f_2(1))` 
+\end{align}
+$$
+
+And then climb up to the more complex blocks to get our answer:
+```{python result='asis'}
+print(6*f2_1*f2_dx_1 + 5*f2_1*f3_dx_1 + 5*f3_1*f2_dx_1 + 8*f3_1*f3_dx_1)
+```
+
+We can confirm that this is the right answer by comparing with the full symbolic derivation, evaluated at $x$:
+```{python}
+print(f_1(f_2(x), f_3(x)).diff(x).subs({'x': 1.0}))
+```
+
+And, without formalizing things too much at this point, this is the essence of forward-mode autodiff: we start from the derivatives of the innermost functions, and work our way up to the outermost function. Before we move on, it is interesting to reflect about the relationship between functions and subfunctions in a composite function.
+
+**Function Breakdown.** We wrote $f = f_1(f_2(t), f_3(t))$ as a composite function of three relatively complex functions. We might just as well have written it as a function of much more fine-grained functions; e.g., we could have expressed $f_1$ as $f_1(x,y) = f_{+}(f_{+}(f_{\times}(a, f_{\times}(x,x), f_{\times}(b, f_{\times}(x, y))), f_{\times}(c, f_{\times}(y, y)))$, where $f_{+}(x,y) = x + y$ and $f_{\times}(x,y) = x \times y$, and the same principles we have developed above would still apply.
+
+Indeed, this very fine-grained representation is precisely the representation one would get in an algorithmic setting where functions are provided by users in terms of elementary computing operations. Given that our final goal is understanding backpropagation in the context of neural networks, however, we do not need to reason at such a fine-grained level.
+
+# Reverse-Mode Autodiff {#sec:rev-autodiff}
+
+To get started with reverse-mode autodiff, we will look at an even simpler example (borrowed from [these great notes](http://www.cs.cmu.edu/~wcohen/10-605/notes/autodiff.pdf)) which we then use to explain the base principles, and to separate it from forward-mode autodiff. 
+
+Suppose we had a deep composition of single-parameter functions, as follows:
+
+$$
+\begin{align}
+a_1 &= f_1(a)\\
+a_2 &= f_2(f_1(a)) = f_2(a_1)\\
+a_3 &= f_3(f_2(f_1(a))) = f_3(a_2)\\
+&\cdots\\
+a_m &= f_m(f_{m-1}(\,\cdots\, f_2(f_1(a)) \,\cdots\,)) = f_m(a_{m-1})
+\end{align}
+$$
+
+Let's call $f(a) = f_m(f_{m-1}(\,\cdots\, f_2(f_1(a)) \,\cdots\,))$. The good thing about $f$ is that it is relatively easy to understand how $f^\prime$ looks like, even though it is a deep composite function. Indeed, by applying the (simple) chain rule repeatedly, we can expand the final derivative for this function into:
+$$
+f^\prime(a) = f_m^\prime(a_{m-1})  f_{m-1}^\prime(a_{m-2}) \cdots f_2^\prime(a_2)f_1^\prime(a)
+$$
+
+Now suppose we wanted to compute $f^{\prime}(a_0)$ for some real-valued $a_0$. Let us pause and think for a moment about what we already know: we know how to compute the derivatives $f^{\prime}_{i}$ for each of the composing functions (since those are not composite functions themselves, we assume that their derivative is easy to compute and does not involve the chain rule), and we know the value of $a_0$. But how do we proceed?
+
+**Forward-Mode Autodiff.** With forward-mode autodiff, we would compute this expression for a given $a = a_0$ by starting from the right. We would first evaluate $a_1 = f_1^{\prime}(a_0)$, then $a_2 = f_2(f_1(a_0))$, then $f^{\prime}(a_2)$, then $a_3 = f_2^\prime(a_2)f_1^\prime(a_0)$, and so on, alternating computations for the various $f_i$ with computations on their derivatives $f^\prime_i$ until we complete the evaluation of the full product, which would get us the value of $f^\prime(a_0)$.
+
+**Reverse-Mode Autodiff.** With reverse-mode autodiff, we would work our way backwards instead; i.e., the first thing we would compute is $f^\prime(a_{m-1})$. But we do not know the value of $a_{m-1}$, so we have to compute it first. This is not hard, however: we have the $f_i$ and the value of $a_0$, so we just have to run $a_0$ through the entire composition and get the value we need. Note that we will, in the process, compute the values of all of the $a_j$ as well, for $1 \leq j \leq a_{m-1}$. This is called the "forward pass". We then move to the left and apply the product to the arguments computed in the forward pass until the end, getting $f^\prime(a_0)$ as before. This reverse pass is called "backpropagation".
+
+We now look at more complicated examples in the next sections, but the main idea nevertheless remains the same: we do a forward step to compute the values of all intermediate functions, and then backwards to compute the gradients by following the products prescribed by the chain rule.
+
+## The Multivariable Chain Rule {#sec:multivar-chain-rule}
+
+Let us complicate our deep composite function a little. Suppose we had a function as follows:
+
+$$
+f(a) = f_m(f_{1k}(f_{1k-1}\cdots f_{11}(a)\cdots), f_{2k-1}(\cdots f_{21}(a)\cdots))
+$$
+
+How can we compute the derivative of something like that? Well, the first thing to note is that the inner composite functions are, from the point of view of $f_m$, just functions. If we set $f_{1} = f_{1k-1}(\cdots f_{11}(a)\cdots)$ and $f_{2} = f_{2k-1}(\cdots f_{21}(a)\cdots)$, we can rewrite this as:
+
+$$
+f(a) = f_m(f_{1}(a), f_2(a))
+$$
+
+we can then apply the multivariable chain rule to obtain:
+
+$$
+\begin{equation}
+  f^{\prime}(a) = f_m^{\prime}(f_1(a), f_2(a))f_1^\prime(a) + f_{m\prime}(f_1(a), f_2(a))f_2^\prime(a)
+  (\#eq:multivariable-chainrule)
+\end{equation}
+$$
+
+Assuming we have already done the forward pass, we know the values for $f_1(a)$ and $f_2(a)$, as well as the forms of the derivatives for $f_m^\prime$ and $f_{m^\prime}$. The values of $f_m^{\prime}(f_1(a), f_2(a))$ and $f_{m\prime}(f_1(a), f_2(a))$ are, therefore, immeditaly available, and we have the first step of reverse-mode autodiff. We do not have the derivatives for $f_1^\prime(a))$ or $f_2^\prime(a)$ yet but, as you can imagine, all we will need to do is unpack those with the chain rule too. Before we do that, however, we need to dive in a little deeper in the chain rule.
+
+## Unifying the Rules {#sec:unifying-chain-rule}
+
+So far, we have been dealing with composite functions on one input variable; i.e., our final function $f(a)$ has always been a function of one single variable $a$.
+
+Suppose now that we had a two-variable function; i.e.:
+$$
+f(x_1,x_2) = f_m(f_{1}(x_1, x_2)), f_2(x_1))
+$$
+
+And we wanted to determine the partial derivatives of $f$ with respect to $x_1$ and $x_2$. Partial derivatives are essentially equivalent to taking a function and interpreting all but one of its variables - the one you are taking the partial derivative with respect to - as constants. This, by construction, means that any partial derivative we take reduces to a single-variable case; i.e., there is nothing special about multiple variables.
+
+For a function $f(x_1,x_2)$ for which we are computing $f^\prime(x_1,x_2)$, we will write $f^\prime(x_1, \cdot)$ to reinforce the idea that we do not care about about $x_2$ in this case (and, conversely, we will write $f_\prime(\cdot,x_2)$ when we derive with respect to $x_2$).
+
+We now take the partial derivative of $f$ with respect to $x_1$, which reduces to the multivariable chain rule:
+
+$$
+\begin{equation}
+  f^\prime(x_1,x_2) = 
+  f_m^\prime(f_1(x_1,\cdot), f_2(x_1))\times f_1^\prime(x_1,\cdot) + 
+  f_{m\prime}(f_2(x_1,\cdot), f_2(x_1)\times f_{2}^\prime(x_1)
+  (\#eq:multivariable-chainrule-partial)
+\end{equation}
+$$
+and the partial derivative with respect to $x_2$, which reduces to the simple chain rule:
+
+$$
+\begin{equation}
+  f_\prime(x_1,x_2) = f_{m^\prime}(f_1(\cdot,x_2), f_2(\cdot)) \times f_{1^\prime}(\cdot, x_2)
+  (\#eq:simple-chainrule-partial)
+\end{equation}
+$$
+
+Now note that the chain rules from Eq. \@ref(eq:multivariable-chainrule-partial) and \@ref(eq:simple-chainrule-partial) share a certain motif. Namely, if the outer function $f_m(x_1, \cdots, x_n)$ is a function on $n$ parameters, and the $k^{th}$ parameter of $f_m$ contains a function $f_j(x_i,\cdots)$ that involves an input variable $x_i$, then the partial derivative of $f$ (our composite function which involves $f_m$) with respect to $x_j$ will be a summation in which one of the terms will be of the form:
+
+$$
+\begin{equation}
+  \frac{\partial}{\partial x_j}f_m(\cdots, f_j(x_i, \cdots), \cdots) \times \frac{\partial}{\partial x_j} f_j(x_i, \cdots)
+  (\#eq:chainrule-terms)
+\end{equation}
+$$
+
+Indeed, the partial derivative with respect to $x_j$ will be a sum containing one such term for every parameter of $f_m$ that involves $x_j$, either directly; if, say, $f_j(x_i) = x_i$, or indirectly; if, say, $f_j(x_i)$ is itself a composite function like $f_j(x_i) = f_k(f_s(x_i))$.
+
+More formally, suppose we had $k$ possible input variables $\{x_1, \cdots, x_k\}$ and a function $f$ defined on a subset of these variables, i.e., suppose we had:
+
+$$
+  f\left(f_1\left(x_{\pi(1)}\right), \cdots, f_n\left(x_{\pi(n)}\right)\right)
+$$
+
+where $1 \leq \pi(i) \leq k$, $1 \leq i \leq n$, and the $\pi(i)$ can take on the same value for different values of $i$; i.e., it is possible that $i \neq j$ but $\pi(i) = \pi(j)$ for $1 \leq j \leq n$. 
+
+If we wanted to compute the partial derivative of $f$ with respect to $x_j$, we would have, by the (multivariable) chain rule:
+
+$$
+  \frac{\partial}{\partial x_j}f\left(f_1\left(x_{\pi(1)}\right), \cdots, f_n\left(x_{\pi(n)}\right)\right) = \sum_{\{i~\mid~\pi(i) = j\}} \frac{\partial}{\partial x_i}f\left(f_1\left(x_{\pi(1)}\right), \cdots, f_n\left(x_{\pi(n)}\right)\right) \times \frac{\partial}{\partial x_j} f_i\left(x_{\pi(i)}\right)
+$$
+
+If this is still looking too abstract, we will work through an example from beginning to end in the next section.
+
+## Expression Graphs {#sec:expression-graphs}
+
+In taking the partial derivative of the composite $f$ with respect to a variable $x_i$, we had to:
+
+  1. identify which parameters of $f$ contained functions which referred to $x_i$;
+  2. apply the chain rule and add a term of the form given by Eq. \@ref(eq:chainrule-terms) for each parameter that did;
+  3. sum those terms together to obtain the final result.
+
+In particular, we have so far relied on visually inspecting the function to do step (1), but this is not practical for complex functions. It is much more convenient (and the reason will hopefully become clear as we proceed), instead, to represent our expression as a graph (a DAG, really) where nodes are either: _i)_ intermediate functions or _ii)_ input variables (Fig. \@ref(fig:expression-graph)). 
+
+Let's look again at a two-variable example:
+
+```{r}
+example <- quote(f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1)))
+```
+
+$$
+f(x_1,x_2) = `r deparse(example)`
+$$
+
+```{python echo=FALSE}
+def f_1(x, y):
+  return sin(pi*x) + cos(pi*y)
+  
+def f_2(x, y):
+  return x**y
+  
+def f_3(x):
+  return ln(x)
+```
+
+But this time let us assign concrete functions to them:
+
+* $f_1(x, y) = `r do_py('f_1(x, y)')`$
+* $f_2(x, y) = `r do_py('f_2(x, y)')`$
+* $f_3(x) = `r do_py('f_3(x)')`$
+
+Now, supposing we wanted to compute $\frac{\partial f}{\partial x_1}$, we would get, by the (multivariable) chain rule:
+
+\[
+\begin{align}
+  \frac{\partial}{\partial x_1}f(x_1, x_2) =~
+    &\frac{\partial}{\partial x}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1))\times
+    \frac{\partial}{\partial x_1}f_2(x_1, f_2(x_2, x_1))) + 
+    \frac{\partial}{\partial y}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1)) \times 
+      \frac{\partial }{\partial x_1}f_3(x_1) = \\
+  =~&\frac{\partial}{\partial x}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1))\times
+      \left[\frac{\partial}{\partial x}f_2(x_1, f_2(x_2, x_1))) + \frac{\partial}{\partial y}f_2(x_1, f_2(x_2, x_1)))\times \frac{\partial}{\partial x_1}f_2(x_2, x_1)\right] +\\
+    &+ \frac{\partial}{\partial y}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1)) \times 
+      \frac{\partial }{\partial x_1}f_3(x_1)
+\end{align}
+\]
+
+And this expands into the sum of three products:
+
+$$
+\begin{align}
+  \frac{\partial}{\partial x_1}f(x_1, x_2) =&\frac{\partial}{\partial x}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1))\times\frac{\partial}{\partial x}f_2(x_1, f_2(x_2, x_1)))~+\\
++  &\frac{\partial}{\partial x}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1))\times\frac{\partial}{\partial y}f_2(x_1, f_2(x_2, x_1)))\times \frac{\partial}{\partial x_1}f_2(x_2, x_1)~+ \\
+  + &\frac{\partial}{\partial y}f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1)) \times 
+      \frac{\partial }{\partial x_1}f_3(x_1)
+  (\#eq:partial-derivative)
+\end{align}
+$$
+
+Let us now bridge this to the expression graph of $f$, shown in Fig. \@ref(fig:expression-graph). 
+
+```{r expression-graph, fig.height=3, fig.cap='Expression graph for $f$.'}
+express(!!example) %>% render_graph()
+```
+
+Looking at Fig. \@ref(fig:expression-graph), if we assign, to each outlink in the the DAG, the partial derivative of the function represented by the node from which the edge _departs_ with respect to each of its parameters, it is not hard to see that that the final partial derivative $\frac{\partial f}{\partial x_1}$ is given by the sum of the products of these edge expressions along each path that connects $f_1$ to $x_1$. Indeed, the three products in Eq. \@ref(eq:partial-derivative) correspond to the three paths; $(f_1, f_2); (f_1, f_2, f_2); (f_1, f_3)$, that connect $f_1$ to $x_1$ in the graph.
+
+Let's show that this is indeed true by using this method to compute the partial derivatives of $f$ at the point $(2,3)$, and then comparing the results with the full symbolic derivative obtained by expanding Eq. \@ref(eq:partial-derivative).
+
+We first need our building blocks; i.e., the partial derivatives of each of the composing functions:
+
+```{python echo=FALSE}
+df_1_x = f_1(x, y).diff(x)
+df_1_y = f_1(x, y).diff(y)
+df_2_x = f_2(x, y).diff(x)
+df_2_y = f_2(x, y).diff(y)
+df_3_x = f_3(x).diff(x)
+```
+
+$$
+\frac{\partial}{\partial x} f_1(x, y) = `r latex(py$df_1_x)`\\
+\frac{\partial}{\partial y} f_1(x, y) = `r latex(py$df_1_y)`\\
+\frac{\partial}{\partial x} f_2(x, y) = `r latex(py$df_2_x)`\\
+\frac{\partial}{\partial y} f_2(x, y) = `r latex(py$df_2_y)`\\
+\frac{\partial}{\partial x} f_3(x) = `r latex(py$df_3_x)`
+$$
+
+And we also need the results of the forward propagation step:
+
+```{python echo=FALSE}
+x_1 = 2
+x_2 = 3
+
+# We store those as we'll use them later. 
+w_1 = f_2(x_2, x_1)
+w_2 = f_2(x_1, f_2(x_2, x_1))
+w_3 = f_3(x_1).evalf()
+```
+
+$$
+\begin{align}
+  x_1 &= `r latex(py$x_1)`\\
+  x_2 &= `r latex(py$x_2)`\\
+  f_2(x_2, x_1) &= `r latex(py$w_1)`\\
+  f_2(x_1, f_2(x_2, x_1)) &= `r latex(py$w_2)`\\
+  f_3(x_1) &= `r latex(py$w_3)`
+\end{align}
+$$
+
+Finally, we can put these together by computing the products along the paths from $f_1$ to $x_1$:
+
+```{python echo=FALSE}
+w11 = df_1_x.subs({'x': w_2, 'y': w_3}).evalf()
+w12 = w11 * df_2_x.subs({'x': x_1, 'y': w_1}).evalf()
+w122 = w11 * df_2_y.subs({'x': x_1, 'y': w_1}).evalf() * df_2_y.subs({'x': x_2, 'y': x_1}).evalf()
+w13 = df_1_y.subs({'x': w_2, 'y': w_3}).evalf() * df_3_x.subs({'x': x_1}).evalf()
+```
+
+
+$$
+\begin{align}
+  (f_1, f_2, x_1) &= `r latex(py$w12)`\\
+  (f_1, f_2, f_2, x_1) &= `r latex(py$w122)`\\
+  (f_1, f_3) &= `r latex(py$w13)`
+\end{align}
+$$
+
+So that the sum yields `r do_py('w12 + w122 + w13')`. As for the symbolic derivative, we get that the formula is:
+
+```{python results='asis'}
+x_1, x_2 = symbols('x_1 x_2')
+df_x1 = f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1)).diff(x_1)
+print('$$ \\frac{\\partial}{\\partial x_1} f(x_1, x_2) = ' + latex(df_x1) + '$$')
+```
+
+Which, computing for $(2, 3)$, yields:
+
+```{python}
+print(df_x1.subs({'x_1': 2, 'x_2': 3}).evalf())
+```
+
+as expected.
+
+# Appendix A: Backpropagation in Python {.unnumbered}
+
+We will now use the ideas developed in the previous sections to put together a simple reverse-mode autodiff in Python. We will let the user specify relatively complicated functions and, instead of breaking them down into elementary pieces, we will resort to [sympy](http://www.sympy.org/en/index.html) to compute the partial derivatives.
+
+```{python}
+import numbers
+from typing import Callable, Mapping
+import sympy as sy
+import inspect
+```
+
+The code to our minimalistic reverse-mode autodiff is provided next.
+
+```{python}
+class Function(object):
+    """
+    :class:`Function` represents a mathematical function for which we wish to compute the 
+    gradient. :class:`Function`s can be created from :class:`Callable`s, which are often 
+    lambda expressions:
+  
+    >> f = Function(lambda x: x**3)
+    >>
+  
+    Functions can then be regularly called, but will return an :class:`AppliedFunction`, which 
+    can then be used to inspect the values and compute the gradients for the declared symbols.
+  
+    >> call = f(2)
+    >> call.value
+    8
+    >> symbols = call.compute_gradient()
+    >> symbols['x'].gradient
+    12
+  
+    Finally, functions can be composed:
+  
+    >> f1 = Function(lambda x, y: x*y)
+    >> f2 = Function(lambda x, y: sympy.cos(sympy.pi * x)/sympy.sin(x))
+    >> f3 = Function(lambda x, y: sympy.ln(x)/y)
+  
+    Note that we use the mathematical functions and constants from :mod:`sympy`. This is necessary 
+    as otherwise we are not able to properly compute the derivatives later on. We can then do:
+  
+    >> x1 = Value(2, 'x1')
+    >> x2 = Value(3, 'x2')
+    >> call = f1(f2(x1, x2), f3(x1, x2))
+    >> call.compute_gradient().gradient()
+    {'x1': 0.299580760323820, 'x2': -0.0846987477622259}
+    """
+  
+    def __init__(self, f: Callable):
+        self.f = f
+        self.args = inspect.signature(f).parameters.keys()
+        self.derivatives = self._derivatives(f)
+  
+    def symbols(self):
+        return {
+            key: sy.Symbol(key)
+            for key in self.args
+        }
+  
+    def _derivatives(self, f: Callable):
+        symbols = self.symbols()
+        return {
+            key: f(**symbols).diff(symbol)
+            for key, symbol in symbols.items()
+        }
+  
+    def __call__(self, *args):
+        supplied = len(args)
+        expected = len(self.derivatives)
+        if supplied != expected:
+            raise Exception('Expected %s arguments, got %s.' %
+                            (expected, supplied))
+  
+        children = dict(zip(self.args, args))
+        children = self._cast_values(children)
+  
+        return AppliedFunction(
+            self,
+            ### Forward propagation ###
+            value=self.f(**{key: child.value for
+                            key, child in children.items()}),
+            children=children
+        )
+  
+    def _cast_values(self, kwargs):
+        return {
+            key: Value(value, key) if isinstance(value, numbers.Number) else value
+            for key, value in kwargs.items()
+        }
+
+  
+class AppliedFunction(object):
+    def __init__(self, ftype, value, children: Mapping[str, 'AppliedFunction']):
+        self.ftype = ftype
+        self.value = value
+        self.children = children
+  
+    def compute_gradient(self, parent_gradient=1):
+        pars = {key: child.value for key, child in self.children.items()}
+        ### Backpropagation ###
+        for key, child in self.children.items():
+            child.compute_gradient(
+                parent_gradient * self.ftype.derivatives[key].subs(pars).evalf()
+            )
+        return self
+  
+    def symbols(self):
+        values = {}
+        for child in self.children.values():
+            values.update(child.symbols())
+  
+        return values
+  
+    def gradient(self):
+        return {
+            s.symbol: s.gradient for s in self.symbols().values()
+        }
+  
+    def sympy(self):
+        return self.ftype.f(
+            **{key: child.sympy() for key, child in self.children.items()}
+        )
+  
+  
+class Value(object):
+    def __init__(self, value, symbol):
+        self.symbol = symbol
+        self.value = float(value)
+        self.gradient = 0
+  
+    def compute_gradient(self, parent_gradient):
+        self.gradient += parent_gradient
+  
+    def symbols(self):
+        return {self.symbol: self}
+  
+    def sympy(self):
+        return sy.Symbol(self.symbol)
+  
+    def __repr__(self):
+        return 'Value(%f, %s)' % (self.value, self.symbol)
+```
+
+To see that it works, we give it a go with the example we have already tried.
+```{python results='asis', strip.white=FALSE}
+x1 = Value(2, 'x1')
+x2 = Value(3, 'x2')
+  
+f_1 = Function(lambda x, y: sy.sin(sy.pi * x) + sy.cos(sy.pi * y))
+f_2 = Function(lambda x, y: x**y)
+f_3 = Function(lambda x: sy.ln(x))
+  
+f = f_1(f_2(x1, f_2(x2, x1)), f_3(x1))
+f.compute_gradient()
+  
+print('Gradients are: $$\\begin{align}\\frac{\\partial}{\\partial x_1} f(2,3) &= %f\\\\' 
+      '\\frac{\\partial}{\\partial x_2} f(2,3) &= %f\\end{align}$$' % (x1.gradient, x2.gradient))
+```
+
+And the results match.

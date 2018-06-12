@@ -1,0 +1,372 @@
+---
+title: "Histograms and Density Estimation"
+author: "Giuliano Mega"
+date: 2018-06-08T00:00:00
+categories: ["statistics", "basics", "R"]
+tags: ["density estimation"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+
+image_preview: posts/2017-06-08-density/density-bin.png
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+
+
+<p>Histograms are probably one the most intuitive ways of performing <a href="https://en.wikipedia.org/wiki/Density_estimation">density estimation</a> in numerical data. Yet, practitioners without a statistical background (e.g.; me) often use them without giving them too much thought, despite realizing that results can vary significantly as a function of elements such bin width and alignment, and the shape of the density being approximated.</p>
+<p>In this writeup, I discuss some of the deeper meanings and properties of histograms, as I try to digest <a href="https://uwaterloo.ca/statistics-and-actuarial-science/people-profiles/wayne-oldford">Wayne Oldford’s</a> excellent <a href="https://www.youtube.com/watch?v=tTxV2TdvFyU">lecture on the subject</a>.</p>
+<p>In particular, we will look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We will then discuss a form of histogram that is much less sensitive to the <em>location</em> of bin boundaries, called an Average Shifted Histogram <span class="citation">[<a href="#ref-scott-92">1</a>]</span>. This kind of histogram has deeper connections to kernel methods, and we will therefore touch briefly on those too.</p>
+<div id="histograms" class="section level1">
+<h1>Histograms</h1>
+<p>When data is one-dimensional and real-valued, histograms are typically constructed by partitioning the region where the observed data lies into a set of <span class="math inline">\(m \leq 1\)</span> bins. Each bin <span class="math inline">\(A_k\)</span> (<span class="math inline">\(1 \leq k \leq m\)</span>) is then represented as an interval:</p>
+<p><span class="math display">\[
+A_k = \left[t_k, t_{k+1}\right)
+\]</span></p>
+<p>where the bin width is given by:</p>
+<p><span class="math display">\[
+h = t_{k+1} - t_k
+\]</span></p>
+<p>To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g. exponentially-sized bins).</p>
+<p>We then assign to bin <span class="math inline">\(A_k\)</span> a height which is proportional to the number of points <span class="math inline">\(n_k\)</span> that fall into its interval. In other words, if we have a set of observed data points <span class="math inline">\(\mathcal{D} = \{x_1, \cdots x_n\}\)</span> ordered by value (i.e. <span class="math inline">\(x_i \leq x_j\)</span> iff <span class="math inline">\(i \leq j\)</span>), we define <span class="math inline">\(n_k\)</span> as:</p>
+<p><span class="math display">\[
+n_k = \left|\mathcal{D} \cap A_k\right|
+\]</span></p>
+<p>and assign a height to <span class="math inline">\(A_k\)</span> which is proportional to <span class="math inline">\(n_k\)</span>. In particular, we could assign <span class="math inline">\(n_k\)</span> as the height, in which case we would have a frequency histogram.</p>
+<p>Using the example from , we take the <a href="https://en.wikipedia.org/wiki/Old_Faithful">Old Faithful’s</a> eruption dataset as our starting point.</p>
+<pre class="r"><code>data(geyser, package = &#39;MASS&#39;)</code></pre>
+<p>The points corresponding to the duration of each eruption are:</p>
+<pre class="r"><code>ggplot(geyser) + 
+  geom_segment(aes(x = duration, xend = duration, y = -.1, yend = .1)) + 
+  ylim(-1, 1) + 
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  xlab(&#39;duration (minutes)&#39;)</code></pre>
+<div class="figure"><span id="fig:unnamed-chunk-3"></span>
+<img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-3-1.png" alt="Duration of Old Faithful's eruptions." width="768" />
+<p class="caption">
+Figure 1: Duration of Old Faithful’s eruptions.
+</p>
+</div>
+<p>A frequency histogram for these points would be:</p>
+<pre class="r"><code>ggplot(geyser) + 
+  geom_histogram(
+    aes(x = duration), 
+    fill = &#39;salmon&#39;, 
+    bins = 10, 
+    col = &#39;black&#39;
+  )</code></pre>
+<p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-4-1.png" width="768" /></p>
+<p>When used for density estimation, however, histograms are typically rescaled so that the sum of the areas of the bars equals to one. This is accomplished by dividing each <span class="math inline">\(n_k\)</span> by the number of points <span class="math inline">\(n\)</span>, times the histogram width <span class="math inline">\(h\)</span>. We call this value <span class="math inline">\(\hat{p}_k\)</span>:</p>
+<p><span class="math display">\[
+\hat{p}_k = \frac{n_k}{nh}
+\]</span></p>
+<pre class="r"><code>ggplot(geyser) +
+  geom_histogram(
+    aes(x = duration, y = ..density..), 
+    fill = &#39;salmon&#39;, 
+    bins = 10, 
+    col = &#39;black&#39;
+  )</code></pre>
+<div class="figure"><span id="fig:duration-density-histogram"></span>
+<img src="/post/2018-06-08-density_files/figure-html/duration-density-histogram-1.png" alt="Durations of Old Faithful's eruptions (density histogram)." width="672" />
+<p class="caption">
+Figure 2: Durations of Old Faithful’s eruptions (density histogram).
+</p>
+</div>
+<p>Now let <span class="math inline">\(f(x)\)</span> be the unknown density function we are trying to estimate. A histogram essentially defines an approximate density function based on the sample <span class="math inline">\(\mathcal{D}\)</span>, which we name <span class="math inline">\(\hat{f}(x)\)</span> and which, for every <span class="math inline">\(x \in A_k\)</span>, states that the density of <span class="math inline">\(x\)</span> is <span class="math inline">\(\hat{f}(x) = p_k\)</span>. How far, then, is this approximation from the real density, <span class="math inline">\(f(x)\)</span>?</p>
+<div id="histogram-bias" class="section level2">
+<h2>Histogram Bias</h2>
+<p>To understand the quality of the approximation that the histogram provides, we look at its bias:</p>
+<p><span class="math display">\[
+\text{Bias}\left[\hat{f}(x)\right] = \mathbb{E}\left[\hat{f}(x)\right] - f(x)
+\]</span></p>
+<p>Where the expectation on the right-hand side is taken with respect to all samples <span class="math inline">\(\mathcal{D}\)</span> of size <span class="math inline">\(n\)</span>. To understand how to compute the expectation let us assume, without loss of generality, that <span class="math inline">\(x\)</span> belongs to some interval <span class="math inline">\(A_k\)</span>. For a given sample <span class="math inline">\(\mathcal{D}\)</span> drawn from <span class="math inline">\(f\)</span>, let <span class="math inline">\(N_k\)</span> be the random variable which represents the number of points that ended up in bin <span class="math inline">\(A_k\)</span>. We have that:</p>
+<p><span class="math display">\[
+\mathbb{E}\left[\hat{f}(x)\right] = \mathbb{E}\left[\frac{N_k}{nh}\right] = \frac{1}{nh}\mathbb{E}\left[N_k\right]
+\]</span></p>
+<p>Suppose we knew that the probability that a single sample ends up in bin <span class="math inline">\(A_k\)</span> is <span class="math inline">\(p_k\)</span>. The probability that we get <span class="math inline">\(N_k = m\)</span> samples out of <span class="math inline">\(n\)</span> (the size of <span class="math inline">\(\mathcal{D}\)</span>) in <span class="math inline">\(A_k\)</span> is then just the probability that we get <span class="math inline">\(m\)</span> heads out of <span class="math inline">\(n\)</span> coin flips for a coin where the probability of getting heads is <span class="math inline">\(p_k\)</span>. This means that <span class="math inline">\(N_k\)</span> follows a binomial distribution; i.e., <span class="math inline">\(N_k \sim \text{Binomial}(n, p_k)\)</span>. <span class="math inline">\(\mathbb{E}\left[N_k\right]\)</span> therefore is equal to <span class="math inline">\(np_k\)</span>, so that:</p>
+<p><span class="math display">\[
+\frac{1}{nh}\mathbb{E}\left[N_k\right] = \frac{np_k}{nh} = \frac{p_k}{h}
+\]</span></p>
+<p>Now note that <span class="math inline">\(p_k\)</span> is the probability that one sample falls in bin <span class="math inline">\(A_k\)</span>; i.e., that it falls between <span class="math inline">\(t_k\)</span> and <span class="math inline">\(t_{k+1}\)</span>. This is shown in Fig. <a href="#fig:density-bin">3</a>:</p>
+<div class="figure"><span id="fig:density-bin"></span>
+<img src="/img/posts/2017-06-08-density/density-bin.png" alt="Histogram bins and the underlying density."  />
+<p class="caption">
+Figure 3: Histogram bins and the underlying density.
+</p>
+</div>
+<p>This means that <span class="math inline">\(p_k\)</span> can be expressed in terms of <span class="math inline">\(f\)</span> as:</p>
+<p><span class="math display" id="eq:integral">\[
+\begin{equation}
+  p_k = \mathbb{P}[t_k \leq X \leq t_{k + 1}] = \int_{t_k}^{t_{k+1}} f(x)\,dx = F(t_{k+1}) - F(t_{k}) 
+  \tag{1}
+\end{equation}
+\]</span></p>
+<p>Where <span class="math inline">\(F\)</span> is the corresponding cumulative density function for <span class="math inline">\(f\)</span>. The final equation for the bias is, then:</p>
+<p><span class="math display" id="eq:hist-bias">\[
+\begin{equation}
+  \text{Bias}\left[\hat{f}(x)\right] = \frac{p_k}{h} - f(x)
+  \tag{2}
+\end{equation}
+\]</span></p>
+<p>What Eq. <a href="#eq:hist-bias">(2)</a> tells us is that the bias for the histogram depends on <span class="math inline">\(h\)</span> but not on <span class="math inline">\(n\)</span>. In particular, the bias will be small at <span class="math inline">\(x\)</span> as <span class="math inline">\(p_k\)</span> approaches <span class="math inline">\(hf(x)\)</span>. Further, Eq. <a href="#eq:integral">(1)</a> tells us that the bias will be small for any <span class="math inline">\(x\)</span> as <span class="math inline">\(h\)</span> tends to zero, given that:</p>
+<p><span class="math display" id="eq:hconvergence">\[
+\begin{equation}
+  \lim_{h \to 0} \frac{p_k}{h} = \lim_{h \to 0} \frac{F(t_{k+1}) - F(t_{k+1} - h)}{h} = f(t_{k+1}) \stackrel{*}{=} f(x)
+  \tag{3}
+\end{equation}
+\]</span></p>
+<p>where the last equality results from the fact that <span class="math inline">\(x\)</span> is by construction contained in <span class="math inline">\(A_k\)</span> and, therefore, as <span class="math inline">\(h\)</span> approaches zero we get that <span class="math inline">\(t_{k} = t_{k+1} = x\)</span>.</p>
+<p>Great! So we just have to make our <span class="math inline">\(h\)</span> very small and we will get a great histogram, right? Well, not so fast…</p>
+</div>
+<div id="histogram-variance" class="section level2">
+<h2>Histogram Variance</h2>
+<p>As is often the case, a lower bias <a href="https://en.wikipedia.org/wiki/Bias%E2%80%93variance_tradeoff">does not come for free</a>. Indeed, if we look at the variance for <span class="math inline">\(N_k\)</span>, we get:</p>
+<p><span class="math display" id="eq:variance">\[
+\begin{equation}
+  \text{Var}\left[\hat{f}(x)\right] = \text{Var}\left[\frac{N_k}{nh}\right] = \frac{p_k(1 - p_k)}{nh^2}
+  \tag{4}
+\end{equation}
+\]</span></p>
+<p>which does not look like good news: to prevent variance from blowing up, <em>it would appear</em> that we have to increase <span class="math inline">\(n\)</span> faster than we decrease <span class="math inline">\(h\)</span>, and that the required increase in <span class="math inline">\(n\)</span> becomes more dramatic as <span class="math inline">\(h\)</span> approaches zero.</p>
+<p>I say that it <em>would appear</em> to be that way because what happens to variance as we keep <span class="math inline">\(n\)</span> fixed and let <span class="math inline">\(h\)</span> go to zero is not immediately obvious: as we narrow down our bin width <span class="math inline">\(h\)</span>, <span class="math inline">\(p_k\)</span>, the probability that a point falls in our bin, also decreases towards zero. If <span class="math inline">\(p_k\)</span> manages to compensate the decrease in <span class="math inline">\(h\)</span> somehow, perhaps variance does not blow up after all.</p>
+<p>We can solve this mistery by rewriting Eq. <a href="#eq:variance">(4)</a> and looking at its limit as we let <span class="math inline">\(h \to 0\)</span>:</p>
+<p><span class="math display">\[
+\lim_{h \to 0}\frac{1}{nh}\left(\frac{p_k}{h} - \frac{p_k^2}{h}\right)
+\]</span></p>
+<p>We know from Eq. <a href="#eq:hconvergence">(3)</a> that <span class="math inline">\(\lim_{h \to 0}\frac{p_k}{h} = f(x)\)</span>, which is a finite non-negative real number. Since <span class="math inline">\(p_k &lt; 1\)</span>, we also know that <span class="math inline">\(0 \leq p^{2}_k \leq p_k\)</span>, meaning that <span class="math inline">\(\lim_{h\to0}\left(p_k/h - p_k^2/h\right)\)</span> must converge to a non-negative real number as well (limits are linear). This leaves us with <span class="math inline">\(\lim_{h \to 0}\frac{1}{nh}\)</span>, which, barring an equivalent increase in <span class="math inline">\(n\)</span>, will blow up to <span class="math inline">\(+\infty\)</span>. As <span class="math inline">\(h\)</span> tends to zero, therefore, <span class="math inline">\(\text{Var}\left[\hat{f}(x)\right]\)</span> tends to infinity.</p>
+<p>We are, therefore, stuck with this fact of life: when using histograms we can either choose to have wide but imprecise (biased) bins, or narrow but unreliable ones.</p>
+</div>
+<div id="more-on-bias" class="section level2">
+<h2>More on Bias</h2>
+<p>Another interesting point to consider is the relationship between bin width, bias and the shape of <span class="math inline">\(f\)</span>. Clearly, an <span class="math inline">\(f\)</span> which contains narrow peaks will be much harder to approximate with a wide rectangle than an <span class="math inline">\(f\)</span> which is completely flat (think uniform distribution). This intuition can be made formal if we look at the bias equation (Eq. <a href="#eq:hist-bias">(2)</a>) again, but transform it slightly. Specifically, we will rewrite the term <span class="math inline">\(p_k/h\)</span> in another way.</p>
+<p>Recall that Eq. <a href="#eq:integral">(1)</a> tells us that:</p>
+<p><span class="math display">\[
+p_k = \int_{t_k}^{t_{k+1}} f(x)\,dx
+\]</span></p>
+<p>The <a href="https://en.wikipedia.org/wiki/Mean_value_theorem#Mean_value_theorems_for_definite_integrals">mean value theorem for definite integrals</a>, then, tells us that if we were to draw a rectangle with base in <span class="math inline">\(A_k = [t_{k}, t_{k+1})\)</span> and make it tall enough so that its area is equal to <span class="math inline">\(p_k\)</span>, then its height must be equal to <span class="math inline">\(f(\xi)\)</span> for some <span class="math inline">\(\xi \in A_k\)</span>.</p>
+<p>The intuition for this is depicted in Fig. <a href="#fig:mvt">4</a>: if we draw a rectangle with base in <span class="math inline">\(A_k = [t_k, t_{k+1})\)</span> and area <span class="math inline">\(a_k\)</span>, we have three options. Either the top side of the rectangle:</p>
+<ol style="list-style-type: decimal">
+<li>is completely under <span class="math inline">\(f(x)\)</span>, in which case <span class="math inline">\(a_k &lt; p_k\)</span>;</li>
+<li>is completely above <span class="math inline">\(f(x)\)</span>, in which case <span class="math inline">\(a_k &gt; p_k\)</span>;</li>
+<li>is neither above nor below <span class="math inline">\(f(x)\)</span>, in which case we can pick <span class="math inline">\(t_k \leq \xi &lt; t_{k+1}\)</span>, such that <span class="math inline">\(a_k = p_k\)</span>.</li>
+</ol>
+<div class="figure"><span id="fig:mvt"></span>
+<img src="/img/posts/2017-06-08-density/mvt.png" alt="Mean value theorem for definite integrals."  />
+<p class="caption">
+Figure 4: Mean value theorem for definite integrals.
+</p>
+</div>
+<p>Recalling that <span class="math inline">\(t_{k+1} - t_{k} = h\)</span>, we can therefore say that:</p>
+<p><span class="math display">\[
+p_k = \int_{t_k}^{t_{k+1}} f(x)\,dx = hf(\xi)
+\]</span></p>
+<p>for some <span class="math inline">\(t_k \leq \xi &lt; t_{k+1}\)</span>. We can therefore rewrite the bias from Eq. <a href="#eq:hist-bias">(2)</a> as:</p>
+<p><span class="math display">\[
+\text{Bias}\left[\hat{f}(x)\right] = \frac{p_k}{h} - f(x) = f(\xi) - f(x)
+\]</span></p>
+<p>If we now make the rather mild assumption that <span class="math inline">\(f\)</span> is <a href="https://en.wikipedia.org/wiki/Lipschitz_continuity">Lipschitz continuous</a> on <span class="math inline">\(A_k\)</span>; i.e., that there exists some <span class="math inline">\(\gamma_k \in \mathbb{R}\)</span> such that, for every <span class="math inline">\(x, y \in\mathbb{R}\)</span> we have:</p>
+<p><span class="math display">\[
+\left|f(y) - f(x)\right| &lt; \gamma_k\left|y - x\right|
+\]</span></p>
+<p>We get that the absolute value for the bias is also bounded:</p>
+<p><span class="math display" id="eq:bias-bound">\[
+\begin{equation}
+  \left|\text{Bias}\left[\hat{f}(x)\right]\right| = \left| f(\xi) - f(x) \right| \leq \gamma_k|\xi - x| \leq \gamma_kh
+  \tag{5}
+\end{equation}
+\]</span></p>
+<p>where the last inequality holds because both <span class="math inline">\(x\)</span> and <span class="math inline">\(\xi\)</span> are in <span class="math inline">\(A_k\)</span> and, therefore, cannot be farther apart by more than <span class="math inline">\(h\)</span>, the width of the bin <span class="math inline">\(A_k\)</span>.</p>
+<p>One way of looking at what Eq. <a href="#eq:bias-bound">(5)</a> is saying is that the closer the slope of <span class="math inline">\(f\)</span> over <span class="math inline">\(A_k\)</span> is to zero, the wider the rectangles we can use to approximate <span class="math inline">\(f\)</span> acceptably. Although this is only an upper bound, the result is intuitive: a flatter function is easier to represent with a rectangle than a function that varies steeply, up or down<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>.</p>
+</div>
+</div>
+<div id="location-variance-and-average-shifted-histograms" class="section level1">
+<h1>Location Variance and Average Shifted Histograms</h1>
+<p>So far we have touched upon fundamental theoretical properties of histograms which we cannot do much about. We will now discuss something that wfe can actually improve: histogram variance due to bin alignment.</p>
+<p>The main issue relates to the fact that we can generate differently shaped histograms by simply varying the location of the first bin or, equivalently by shifting the data itself<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>. The effect is shown in Fig. <a href="#fig:shifting">5</a>, where we plot three histograms in which we shift the bins, initially aligned at <span class="math inline">\(0\)</span>, by two different values. Some features of the dataset, notably the peak near <span class="math inline">\(4\)</span>, get more pronounced in the rightmost histogram.</p>
+<pre class="r"><code>breaks &lt;- function(X, bins, offset) {
+  width &lt;- diff(range(X)) / bins
+  offset + seq(min(X) - width, max(X), by = width)
+}</code></pre>
+<pre class="r"><code>par(mfrow = c(1, 3))
+for (offset in c(0, 0.2, 0.34)) {
+  hist(
+    geyser$duration,
+    breaks = breaks(geyser$duration, 10, offset), 
+    main = sprintf(&#39;11 bins, bin shift %f&#39;, offset),
+    right = FALSE,
+    ylim = c(0, 1),
+    xlab = &#39;duration&#39;,
+    freq = FALSE
+  )
+}</code></pre>
+<div class="figure"><span id="fig:shifting"></span>
+<img src="/post/2018-06-08-density_files/figure-html/shifting-1.png" alt="Variation in shifted histograms." width="768" />
+<p class="caption">
+Figure 5: Variation in shifted histograms.
+</p>
+</div>
+<p>This variability gets in the way of us understanding the actual nature of the underlying density. Clearly, we could mitigate the issue by using very narrow bins, but that would increase our data-related variance (Eq. <a href="#eq:variance">(4)</a>) thus producing a noisy and equally unreliablehistogram. What can, then, we do about it?</p>
+<div id="histogram-overplots" class="section level2">
+<h2>Histogram Overplots</h2>
+<p>One simple way of improving the situation is by plotting superimposed, transparent versions of our shifted histograms on top of each other. We call these <em>shifted histogram overplots</em>, or SHOs. The idea with SHOs is that we can amortize the effects of variations due to shifting by preemptively shifting them ourselves and “visually averaging” the effects of this shifting.</p>
+<p>A SHO is specified by adding an extra parameter, <span class="math inline">\(m\)</span>, which controls the number of shifted copies we plot. For a given bin width <span class="math inline">\(h\)</span>, we plot <span class="math inline">\(m\)</span> histograms, shifting bin alignment for the <span class="math inline">\(j^{th}\)</span> histogram (<span class="math inline">\(0 \leq j &lt; m\)</span>) by <span class="math inline">\(j \times \frac{h}{m}\)</span>. For simplicity we assume that, in the absence of shifting, the first bin of the histogram aligns with <span class="math inline">\(0\)</span>.</p>
+<p>In R:</p>
+<pre class="r"><code>sho &lt;- function(X, width, m, alpha, ...) {
+    for (shift in 0:(m - 1)) {
+      offset &lt;- shift * (width / m)
+      min_k &lt;- floor((min(X) - offset) / width)
+      max_k &lt;- ceiling((max(X) - offset) / width)
+      hist(
+        X,
+        breaks = offset + width * seq(
+          from = min_k, to = max_k
+        ),
+        freq = FALSE,
+        add = (shift != 0),
+        col = scales::alpha(&#39;gray&#39;, alpha = alpha),
+        lty = &#39;blank&#39;,
+        ...
+      )
+  } 
+}</code></pre>
+<p>We then plot our data again and simulate what would happen had we gotten our data with a different shift each time: shifting the data changes the data/bin alignment just as shifting bin boundaries did, and so generates similar disturbances. The results are shown in Fig. <a href="#fig:shos">6</a>.</p>
+<pre class="r"><code>par(mfrow = c(1, 3))
+for (offset in c(0, 0.2, 0.34)) {
+  sho(
+    geyser$duration + offset,  
+    width = 0.9,
+    m = 5, 
+    alpha = 0.3, 
+    main = sprintf(&#39;m = 5, shift %f&#39;, offset),
+    xlab = &#39;duration&#39;, 
+    ylim = c(0, 0.7),
+    xlim = c(0, 7)
+  )
+}</code></pre>
+<div class="figure"><span id="fig:shos"></span>
+<img src="/post/2018-06-08-density_files/figure-html/shos-1.png" alt="Shifted Histogram Overplots with $h = 0.9$, $m = 5$." width="768" />
+<p class="caption">
+Figure 6: Shifted Histogram Overplots with <span class="math inline">\(h = 0.9\)</span>, <span class="math inline">\(m = 5\)</span>.
+</p>
+</div>
+<p>As we can see, although we still get some variability, the main features of the density remain largely unchanged. SHOs are therefore more resilient to changing data/bin alignment than plain histograms.</p>
+<p>The issue with SHOs is that they are essentially a visual tool. While we could take the maximum of all shifted histograms and let this be our estimate for <span class="math inline">\(f\)</span>, this would fail to take into account that some regions of the SHO are less transparent (and thus, more likely to be part of the actual density) than others.</p>
+<p>The final step in our histogram ladder, then, is a technique which takes these factors into account while constructing a numeric density estimate for <span class="math inline">\(f\)</span>.</p>
+</div>
+<div id="average-shifted-histograms" class="section level2">
+<h2>Average Shifted Histograms</h2>
+<p>An Average Shifted Histogram <span class="citation">[<a href="#ref-scott-92">1</a>]</span> (ASH) constructs a density estimate by averaging together estimates produced by a set of shifted histograms just like the ones we had built for our SHOs. Formally, if we name the estimates produced by the <span class="math inline">\(m\)</span> shifted histograms at <span class="math inline">\(x\)</span> as <span class="math inline">\(f_0(x), \cdots, f_{m - 1}(x)\)</span>, the ASH estimate <span class="math inline">\(\widehat{f_{ash}}(x)\)</span> for <span class="math inline">\(x\)</span> can be written as:</p>
+<p><span class="math display">\[
+\widehat{f_{ash}}(x) = \frac{1}{m}\sum_{j = 0}^{m - 1} \hat{f_j}(x)
+\]</span></p>
+<p>Or, in R:</p>
+<pre class="r"><code># Average Shifted Histogram
+ash &lt;- function(X, nbins, m) {
+  width &lt;- diff(range(X)) / nbins
+  f_ash &lt;- rep(0, length(X))
+    
+  for (shift in 1:m) {
+    f_ash &lt;- f_ash + 
+      f_j(
+        X = X, 
+        breaks = shift * (width / m) + seq(
+          from = min(X) - width, to = max(X) + 1, by = width
+        )
+      )
+  }
+  
+  i &lt;- order(X)
+  ash &lt;- tibble(f = f_ash[i]/m, x = X[i])
+  class(ash) &lt;- c(&#39;ash&#39;, class(ash))
+  ash
+}
+
+# Histogram Density Estimate
+f_j &lt;- function(X, breaks) {
+  n &lt;- length(X)
+  f_dens &lt;- rep(NA, n)
+  for (i in 1:(length(breaks) - 1)) {
+    low &lt;- breaks[i]
+    high &lt;- breaks[i + 1]
+    elements &lt;- (X &gt;= low) &amp; (X &lt; high)
+    f_dens[elements] &lt;- sum(elements) / ((high - low) * n)
+  }
+  stopifnot(all(!is.na(f_dens)))
+  f_dens
+}
+
+# Plot ASH
+plot.ash &lt;- function(ash) {
+  ggplot(ash) + 
+    geom_line(aes(x = x, y = f)) +
+    ylab(&#39;density&#39;)
+}</code></pre>
+<p>Let’s see how the plot looks for our Old Faithful’s data:</p>
+<pre class="r"><code>plot(ash(geyser$duration, m = 5, nbins = 10)) + 
+  xlab(&#39;duration&#39;) +
+  ggtitle(&#39;Duration of Old Faithful\&#39;s Eruptions (ASH, m = 5, 10 bins)&#39;)</code></pre>
+<p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>As we can see, the result is a much smoother function, with features that resemble the ones we could see in the SHOs of Fig. <a href="#fig:shos">6</a>. ## Connection to Kernel Methods</p>
+<p>ASHes have some nice properties which they share with <a href="https://en.wikipedia.org/wiki/Kernel_density_estimation">kernel methods</a>. Scott <span class="citation">[<a href="#ref-scott-92">1</a>]</span> describes them as a middle ground between a kernel estimator in terms of <a href="https://en.wikipedia.org/wiki/Efficiency_(statistics)">statistical efficiency</a> (which I presume to mean that their variance decreases faster with an equivalent number of samples than that of a histogram of equivalent bias) and yet are much cheaper to compute due to their relative simplicity.</p>
+<p>While discussing matters of statistical efficiency is beyond the scope of this post (though I am certain to revisit it in later posts), it is nevertheless interesting to discuss the shape of the weight function and its relationship to the <em>triangle kernel</em>.</p>
+<p>We start by dividing each of our intervals <span class="math inline">\(A_k\)</span> (our bins of length <span class="math inline">\(h\)</span>) into <span class="math inline">\(m\)</span> subparts, as depicted in Fig. <a href="#fig:subparts">7</a>. Each subpart is actually a smaller bin, which we refer to as <span class="math inline">\(B_i\)</span>. For ease of notation, we assume that <span class="math inline">\(x\)</span> is contained in small bin <span class="math inline">\(B_0\)</span>, and give negative indices to the small bins to the left of <span class="math inline">\(x\)</span>. Finally, let <span class="math inline">\(v_i\)</span> be the number of points in our sample that fall in small bin <span class="math inline">\(B_i\)</span> (<span class="math inline">\(\sum v_i = \sum n_i = n\)</span>).</p>
+<div class="figure" style="text-align: center"><span id="fig:subparts"></span>
+<img src="/img/posts/2017-06-08-density/subparts.png" alt="Shifted histograms and their partial estimates." width="500px" />
+<p class="caption">
+Figure 7: Shifted histograms and their partial estimates.
+</p>
+</div>
+<p>We know that the density estimate at <span class="math inline">\(x\)</span> is the average density coming from <span class="math inline">\(m\)</span> overlapping histograms. Looking at Fig. <a href="#fig:subparts">7</a>, we see that we can express those in terms of the <span class="math inline">\(v_i\)</span> as follows:</p>
+<p><span class="math display">\[
+\begin{align}
+  \hat{f_0}(x) =&amp; \frac{1}{h}(v_0 + \cdots v_{m - 1})\\
+  \hat{f_1}(x) =&amp; \frac{1}{h}\left(v_{-1} + v_0 + \cdots v_{m - 2}\right) \\
+  \hat{f_1}(x) =&amp; \frac{1}{h}\left(v_{-1} + v_{-2} + v_0 + \cdots v_{m - 2}\right) \\
+  \cdots&amp;\\
+  \hat{f_i}(x) =&amp; \frac{1}{h}\left(\sum_{j=1}^{i} v_{-j} + v_0 + \sum_{k = 1}^{m - i + 1}v_{k}\right)\\
+  \cdots&amp;\\
+  \hat{f}_{m - 1}(x) =&amp; \frac{1}{h}\left(\sum_{j=1}^{m - 1} v_{-j} + 0\right)
+\end{align}
+\]</span></p>
+<p>We have, therefore that:</p>
+<p><span class="math display" id="eq:sum">\[
+\begin{equation}
+  \frac{1}{m}\sum_{j=0}^{m-1}\hat{f_j}(x) = \frac{1}{m}\left[mv_0 + (m - 1)(v_{-1} + v_1) + \cdots 1(v_{m - 1} + v_{-(m - 1)})\right] = \\
+  \frac{1}{m} \sum_{j = 0}^{m-1} (m - j)(v_j + v_{-j})
+  \tag{6}
+\end{equation}
+\]</span></p>
+<p>We can see Eq. <a href="#eq:sum">(6)</a> as a weighted sum, where the underlying weight function assigns weights <span class="math inline">\(m - j\)</span> to both <span class="math inline">\(v_j\)</span> and <span class="math inline">\(v_{-j}\)</span>. If we plot these weights as a function of <span class="math inline">\(v_i\)</span>, we can observe the shape of the weight function. We plot those in Fig. <a href="#fig:weights">8</a> for <span class="math inline">\(m \in \{5, 15, 100\}\)</span>. As we increase <span class="math inline">\(m\)</span>, the weight function approaches a continuous triangle and the behavior of ASHes approaches that of kernel density estimation with a triangular kernel.</p>
+<div class="figure"><span id="fig:weights"></span>
+<img src="/post/2018-06-08-density_files/figure-html/weights-1.png" alt="The ASH weight function tends to the triangle kernel as $m \to +\infty$." width="672" />
+<p class="caption">
+Figure 8: The ASH weight function tends to the triangle kernel as <span class="math inline">\(m \to +\infty\)</span>.
+</p>
+</div>
+</div>
+</div>
+<div id="summary" class="section level1">
+<h1>Summary</h1>
+<p>Histograms are an intuitive and widely used tool for density estimation. In this post, we have presented a slightly more formal treatment of histograms and their relationship with the underlying density, formalizing some intuitive notions, such as the fact that histograms are inherently biased estimators (it is difficult to represent a smooth function with rectangles) and that reducing this bias by adopting narrower bins entails a cost in terms of increased variance.</p>
+<p>We have then discussed a different type of variance that arises in histograms as we change the alignment of bins and data. We have seen that Shifted Histogram Overplots can successfully mitigate this type of variance, and used them as a building block to explain Average Shifted Histograms. Finally, we have discussed the relationship between Average Shifted Histograms and the triangle kernel.</p>
+<div id="refs" class="references">
+<div id="ref-scott-92">
+<p>[1] D. Scott, <em>Multivariate density estimation</em>. Wiley, 1992.</p>
+</div>
+</div>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>It is actually a bit more complicated than that: the equation says that the slope of whatever remains outside of the rectangle after we matched the areas will bound the bias, and you could have a very tall function which still looks like a rectangle. The intuition that “flatter” functions will have smaller biases is still nevertheless correct.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>While you could clearly just center the data, this is more of an issue when your data is already “cut” at a shifted location but you cannot know what the shift is, as in with an image, or with a time series. Further, the techniques developed here will pave the way for discussing kernel density estimation later on.<a href="#fnref2">↩</a></p></li>
+</ol>
+</div>
