@@ -2,7 +2,7 @@
 title: "Backpropagation and Reverse-mode Autodiff"
 author: "Giuliano Mega"
 date: 2018-05-05T00:00:00
-categories: ["algorithms", "python", "machine learning"]
+categories: ["algorithms", "machine learning", "python"]
 tags: ["backpropagation", "autodiff", "neural networks"]
 math: true
 

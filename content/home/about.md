@@ -34,17 +34,17 @@ weight = 5
  
 +++
 
-# Welcome
+# About Me
 
-Hi there! I am a freelancing Computer Scientist with interests in distributed computing,
+Hi there! I am a Computer Scientist with interests in distributed computing,
 software development and data. I have done work on distributed debugging, 
-parallel simulators, and fault-tolerant and large-scale computing, but recently have
+parallel simulators, fault-tolerant and large-scale computing, but as of late have
 shifted my focus to projects that allow me to develop knowledge in statistics and 
 machine learning. 
 
 I enjoy studying stuff, and find motivation in gaining deeper insight on things. 
 For this reason, I am a slow learner.
 
-I keep this website mainly as a way to publish my 
+I started this website mainly as a way to publish my 
 [R Notebooks](https://rmarkdown.rstudio.com/r_notebooks.html) in a controlled 
-fashion. I may end up turning it into a real personal website eventually. :-)
+fashion. I may end up turning it into a real personal website as time passes. :-)
