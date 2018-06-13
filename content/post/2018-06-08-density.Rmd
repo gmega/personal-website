@@ -21,11 +21,11 @@ library(tidyverse)
 library(gridExtra)
 ```
 
-Histograms are probably one the most intuitive ways of performing [density estimation](https://en.wikipedia.org/wiki/Density_estimation) in numerical data. Yet, practitioners without a statistical background (e.g.; me) often use them without giving them too much thought, despite realizing that results can vary significantly as a function of elements such bin width and alignment, and the shape of the density being approximated.
+Histograms are probably one the most intuitive ways of performing [density estimation](https://en.wikipedia.org/wiki/Density_estimation) in numerical data. In this writeup, I discuss some of their deeper meanings and properties, as I try to digest [Wayne Oldford's](https://uwaterloo.ca/statistics-and-actuarial-science/people-profiles/wayne-oldford) excellent [lecture on the subject](https://www.youtube.com/watch?v=tTxV2TdvFyU). 
 
-In this writeup, I discuss some of the deeper meanings and properties of histograms, as I try to digest [Wayne Oldford's](https://uwaterloo.ca/statistics-and-actuarial-science/people-profiles/wayne-oldford) excellent [lecture on the subject](https://www.youtube.com/watch?v=tTxV2TdvFyU). 
+In particular, we look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We then discuss a form of histogram that is much less sensitive to the _location_ of bin boundaries, called an Average Shifted Histogram [@scott-92]. This kind of histogram has deeper connections to kernel methods, and we will therefore touch briefly on those too.
 
-In particular, we will look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We will then discuss a form of histogram that is much less sensitive to the _location_ of bin boundaries, called an Average Shifted Histogram [@scott-92]. This kind of histogram has deeper connections to kernel methods, and we will therefore touch briefly on those too.
+I believe this kind of reflection to be a useful exercise to any practitioner without a background in statistics (e.g., me) who has found herself tweaking histogram parameters and wondering about their limitations. 
 
 # Histograms
 
