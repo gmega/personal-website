@@ -29,7 +29,7 @@ I believe this kind of reflection to be a useful exercise to any practitioner wi
 
 # Histograms
 
-When data is one-dimensional and real-valued, histograms are typically constructed by partitioning the region where the observed data lies into a set of $m \leq 1$ bins. Each bin $A_k$ ($1 \leq k \leq m$) is then represented as an interval:
+When data is one-dimensional and real-valued, histograms are typically constructed by partitioning the region where the observed data lies into a set of $m \geq 1$ bins. Each bin $A_k$ ($1 \leq k \leq m$) is then represented as an interval:
 
 $$
 A_k = \left[t_k, t_{k+1}\right)
@@ -41,17 +41,17 @@ $$
 h = t_{k+1} - t_k
 $$
 
-To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g. exponentially-sized bins). 
+To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g., exponentially-sized bins). 
 
-We then assign to bin $A_k$ a height which is proportional to the number of points $n_k$ that fall into its interval. In other words, if we have a set of observed data points $\mathcal{D} = \{x_1, \cdots x_n\}$ ordered by value (i.e. $x_i \leq x_j$ iff $i \leq j$), we define $n_k$ as:
+We then assign to bin $A_k$ a height which is proportional to the number of points $n_k$ that fall into it. In other words, if we have a set of observed data points $\mathcal{D} = \{x_1, \cdots x_n\}$ ordered by value (i.e. $x_i \leq x_j$ iff $i \leq j$), we define $n_k$ as:
 
 $$
 n_k = \left|\mathcal{D} \cap A_k\right|
 $$
 
-and assign a height to $A_k$ which is proportional to $n_k$. In particular, we could assign $n_k$ as the height, in which case we would have a frequency histogram. 
+and assign a height to $A_k$ which is proportional to $n_k$. In particular, we could say that $n_k$ is the height of the bin, in which case we would have a frequency histogram. 
 
-Using the example from , we take the [Old Faithful's](https://en.wikipedia.org/wiki/Old_Faithful) eruption dataset as our starting point. 
+Using the example from [Walford's lecture](https://www.youtube.com/watch?v=tTxV2TdvFyU), we take the [Old Faithful's](https://en.wikipedia.org/wiki/Old_Faithful) eruption dataset as our starting point. 
 
 ```{r}
 data(geyser, package = 'MASS')

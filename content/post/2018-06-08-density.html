@@ -22,7 +22,7 @@ link-citations: true
 <p>I believe this kind of reflection to be a useful exercise to any practitioner without a background in statistics (e.g., me) who has found herself tweaking histogram parameters and wondering about their limitations.</p>
 <div id="histograms" class="section level1">
 <h1>Histograms</h1>
-<p>When data is one-dimensional and real-valued, histograms are typically constructed by partitioning the region where the observed data lies into a set of <span class="math inline">\(m \leq 1\)</span> bins. Each bin <span class="math inline">\(A_k\)</span> (<span class="math inline">\(1 \leq k \leq m\)</span>) is then represented as an interval:</p>
+<p>When data is one-dimensional and real-valued, histograms are typically constructed by partitioning the region where the observed data lies into a set of <span class="math inline">\(m \geq 1\)</span> bins. Each bin <span class="math inline">\(A_k\)</span> (<span class="math inline">\(1 \leq k \leq m\)</span>) is then represented as an interval:</p>
 <p><span class="math display">\[
 A_k = \left[t_k, t_{k+1}\right)
 \]</span></p>
@@ -30,13 +30,13 @@ A_k = \left[t_k, t_{k+1}\right)
 <p><span class="math display">\[
 h = t_{k+1} - t_k
 \]</span></p>
-<p>To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g. exponentially-sized bins).</p>
-<p>We then assign to bin <span class="math inline">\(A_k\)</span> a height which is proportional to the number of points <span class="math inline">\(n_k\)</span> that fall into its interval. In other words, if we have a set of observed data points <span class="math inline">\(\mathcal{D} = \{x_1, \cdots x_n\}\)</span> ordered by value (i.e. <span class="math inline">\(x_i \leq x_j\)</span> iff <span class="math inline">\(i \leq j\)</span>), we define <span class="math inline">\(n_k\)</span> as:</p>
+<p>To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g., exponentially-sized bins).</p>
+<p>We then assign to bin <span class="math inline">\(A_k\)</span> a height which is proportional to the number of points <span class="math inline">\(n_k\)</span> that fall into it. In other words, if we have a set of observed data points <span class="math inline">\(\mathcal{D} = \{x_1, \cdots x_n\}\)</span> ordered by value (i.e. <span class="math inline">\(x_i \leq x_j\)</span> iff <span class="math inline">\(i \leq j\)</span>), we define <span class="math inline">\(n_k\)</span> as:</p>
 <p><span class="math display">\[
 n_k = \left|\mathcal{D} \cap A_k\right|
 \]</span></p>
-<p>and assign a height to <span class="math inline">\(A_k\)</span> which is proportional to <span class="math inline">\(n_k\)</span>. In particular, we could assign <span class="math inline">\(n_k\)</span> as the height, in which case we would have a frequency histogram.</p>
-<p>Using the example from , we take the <a href="https://en.wikipedia.org/wiki/Old_Faithful">Old Faithful’s</a> eruption dataset as our starting point.</p>
+<p>and assign a height to <span class="math inline">\(A_k\)</span> which is proportional to <span class="math inline">\(n_k\)</span>. In particular, we could say that <span class="math inline">\(n_k\)</span> is the height of the bin, in which case we would have a frequency histogram.</p>
+<p>Using the example from <a href="https://www.youtube.com/watch?v=tTxV2TdvFyU">Walford’s lecture</a>, we take the <a href="https://en.wikipedia.org/wiki/Old_Faithful">Old Faithful’s</a> eruption dataset as our starting point.</p>
 <pre class="r"><code>data(geyser, package = &#39;MASS&#39;)</code></pre>
 <p>The points corresponding to the duration of each eruption are:</p>
 <pre class="r"><code>ggplot(geyser) + 
