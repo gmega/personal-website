@@ -26,7 +26,7 @@ Histograms are probably one the most intuitive ways of performing [density estim
 
 In particular, we look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We then discuss a form of histogram that is much less sensitive to the _location_ of bin boundaries, called an Average Shifted Histogram [@scott-92]. This kind of histogram has deeper connections to kernel methods, and we will therefore touch briefly on those too.
 
-I believe this kind of reflection to be a useful exercise to any practitioner without a background in statistics (e.g., me) who has found herself tweaking histogram parameters and wondering about their limitations. 
+I believe this kind of reflection to be a useful exercise to any practitioner without a background in statistics (e.g., me) who has found herself tweaking histogram parameters, wondering about their limitations, and wondering as to whether better methods existed.
 
 # Histograms
 
