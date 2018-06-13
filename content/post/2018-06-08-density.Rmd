@@ -9,6 +9,7 @@ math: true
 output:
   blogdown::html_page:
     pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
 
 image_preview: posts/2017-06-08-density/density-bin.png
 bibliography: [bibliography.bib]
@@ -43,23 +44,33 @@ $$
 
 To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g., exponentially-sized bins). 
 
-We then assign to bin $A_k$ a height which is proportional to the number of points $n_k$ that fall into it. In other words, if we have a set of observed data points $\mathcal{D} = \{x_1, \cdots x_n\}$ ordered by value (i.e. $x_i \leq x_j$ iff $i \leq j$), we define $n_k$ as:
+Bin $A_k$ is also assigned a height, which is proportional to the number of points $n_k$ that fall into it. In other words, if we have a set of observed data points $\mathcal{D} = \{x_1, \cdots x_n\}$ ordered by value (i.e. $x_i \leq x_j$ iff $i \leq j$), we define $n_k$ as:
 
 $$
 n_k = \left|\mathcal{D} \cap A_k\right|
 $$
 
-and assign a height to $A_k$ which is proportional to $n_k$. In particular, we could say that $n_k$ is the height of the bin, in which case we would have a frequency histogram. 
+and assign a height to $A_k$ which is proportional to $n_k$. In particular, we could assign a height to $A_k$ which is equal to $n_k$ (as $n_k$ is surely proportional to itself), in which case we would have a frequency histogram. 
 
-Using the example from [Walford's lecture](https://www.youtube.com/watch?v=tTxV2TdvFyU), we take the [Old Faithful's](https://en.wikipedia.org/wiki/Old_Faithful) eruption dataset as our starting point. 
+Let us now look at an example, based on the [Old Faithful's](https://en.wikipedia.org/wiki/Old_Faithful) eruption dataset. The first $5$ rows in the table are shown in Table \@ref(tab:sample).
 
 ```{r}
 data(geyser, package = 'MASS')
 ```
 
-The points corresponding to the duration of each eruption are:
+```{r sample, echo=FALSE}
+knitr::kable(
+  geyser %>% head(5),
+  caption = 'First $5$ rows of the Old Faithful\'s eruption dataset.'
+)
 
-```{r fig.height=3, fig.width=8, fig.cap='Duration of Old Faithful\'s eruptions.'}
+```
+
+The dataset contains two columns: _duration_ and _waiting_, which describe the duration of an eruption and the time ellapsed until that eruption, respectively.
+
+We plot the points corresponding to the duration of each eruption in a line in Fig. \@ref(fig:line). This gives us a rough idea of their distribution.
+
+```{r line, fig.height=3, fig.width=8, fig.cap='Duration of Old Faithful\'s eruptions.'}
 ggplot(geyser) + 
   geom_segment(aes(x = duration, xend = duration, y = -.1, yend = .1)) + 
   ylim(-1, 1) + 
@@ -71,7 +82,7 @@ ggplot(geyser) +
   xlab('duration (minutes)')
 ```
 
-A frequency histogram for these points would be:
+We can then use those to construct a frequency histogram, with $10$ equally-sized bins:
 
 ```{r fig.height=3, fig.height = 3, fig.width=8}
 ggplot(geyser) + 
@@ -83,7 +94,7 @@ ggplot(geyser) +
   )
 ```
 
-When used for density estimation, however, histograms are typically rescaled so that the sum of the areas of the bars equals to one. This is accomplished by dividing each $n_k$ by the number of points $n$, times the histogram width $h$. We call this value $\hat{p}_k$:
+When used for density estimation, however, histograms are typically rescaled so that the sum of the areas of the bars equals to one. This is accomplished by dividing each $n_k$ by the number of points $n$, times the bin width $h$, and assigning the resulting value to the bin's height. We call this resulting value $\hat{p}_k$:
 
 $$
 \hat{p}_k = \frac{n_k}{nh}
@@ -99,7 +110,7 @@ ggplot(geyser) +
   )
 ```
 
-Now let $f(x)$ be the unknown density function we are trying to estimate. A histogram essentially defines an approximate density function based on the sample $\mathcal{D}$, which we name $\hat{f}(x)$ and which, for every $x \in A_k$, states that the density of $x$ is $\hat{f}(x) = p_k$. How far, then, is this approximation from the real density, $f(x)$?
+Now let $f(x)$ be the unknown density function we are trying to estimate. A histogram essentially defines an approximate density function based on the sample $\mathcal{D}$, which we name $\hat{f}(x)$ and which, for every $x \in A_k$, states that the density of $x$ is $\hat{f}(x) = \hat{p}_k$. How far, then, is this approximation from the real density, $f(x)$?
 
 ## Histogram Bias
 
@@ -115,19 +126,19 @@ $$
 \mathbb{E}\left[\hat{f}(x)\right] = \mathbb{E}\left[\frac{N_k}{nh}\right] = \frac{1}{nh}\mathbb{E}\left[N_k\right]
 $$
 
-Suppose we knew that the probability that a single sample ends up in bin $A_k$ is $p_k$. The probability that we get $N_k = m$ samples out of $n$ (the size of $\mathcal{D}$) in $A_k$ is then just the probability that we get $m$ heads out of $n$ coin flips for a coin where the probability of getting heads is $p_k$. This means that $N_k$ follows a binomial distribution; i.e., $N_k \sim \text{Binomial}(n, p_k)$. $\mathbb{E}\left[N_k\right]$ therefore is equal to $np_k$, so that:
+Suppose we knew that the probability that a single sample ends up in bin $A_k$ is $p_k$ (which is different from its estimator, $\hat{p}_k$). The probability that we get $N_k = m$ samples out of $n$ (the size of $\mathcal{D}$) in $A_k$ is then just the probability that we get $m$ heads out of $n$ coin flips for a coin where the probability of getting heads is $p_k$. This means that $N_k$ follows a binomial distribution; i.e., $N_k \sim \text{Binomial}(n, p_k)$. $\mathbb{E}\left[N_k\right]$ therefore is equal to $np_k$, so that:
 
 $$
 \frac{1}{nh}\mathbb{E}\left[N_k\right] = \frac{np_k}{nh} = \frac{p_k}{h}
 $$
 
-Now note that $p_k$ is the probability that one sample falls in bin $A_k$; i.e., that it falls between $t_k$ and $t_{k+1}$. This is shown in Fig. \@ref(fig:density-bin):
+Now note that $p_k$ is the probability that one sample falls in bin $A_k$; i.e., that it falls between $t_k$ and $t_{k+1}$.
 
 ```{r density-bin, fig.cap='Histogram bins and the underlying density.', echo=FALSE}
 knitr::include_graphics('/img/posts/2017-06-08-density/density-bin.png')
 ```
 
-This means that $p_k$ can be expressed in terms of $f$ as:
+Fig. \@ref(fig:density-bin) tells us, however, that $p_k$ can be expressed in terms of $f$ as:
 
 $$
 \begin{equation}
@@ -145,7 +156,7 @@ $$
 \end{equation}
 $$
 
-What Eq. \@ref(eq:hist-bias) tells us is that the bias for the histogram depends on $h$ but not on $n$. In particular, the bias will be small at $x$ as $p_k$ approaches $hf(x)$. Further, Eq. \@ref(eq:integral) tells us that the bias will be small for any $x$ as $h$ tends to zero, given that:
+What Eq. \@ref(eq:hist-bias) tells us is that the bias for the histogram depends on $h$ but not on $n$, which is reasonable. In particular, the bias will be small at $x$ as $p_k$ approaches $hf(x)$. Further, Eq. \@ref(eq:integral) tells us that the bias will be small for any $x$ as $h$ tends to zero, given that:
 
 $$
 \begin{equation}

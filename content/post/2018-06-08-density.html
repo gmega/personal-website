@@ -9,12 +9,15 @@ math: true
 output:
   blogdown::html_page:
     pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
 
 image_preview: posts/2017-06-08-density/density-bin.png
 bibliography: [bibliography.bib]
 link-citations: true
 ---
 
+<link href="/rmarkdown-libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/pagedtable/js/pagedtable.js"></script>
 
 
 <p>Histograms are probably one the most intuitive ways of performing <a href="https://en.wikipedia.org/wiki/Density_estimation">density estimation</a> in numerical data. In this writeup, I discuss some of their deeper meanings and properties, as I try to digest <a href="https://uwaterloo.ca/statistics-and-actuarial-science/people-profiles/wayne-oldford">Wayne Oldford’s</a> excellent <a href="https://www.youtube.com/watch?v=tTxV2TdvFyU">lecture on the subject</a>.</p>
@@ -31,14 +34,46 @@ A_k = \left[t_k, t_{k+1}\right)
 h = t_{k+1} - t_k
 \]</span></p>
 <p>To simplify things, and because this is the most common case, we assume that all bins are of the same width. Other arrangements, however, are clearly possible (e.g., exponentially-sized bins).</p>
-<p>We then assign to bin <span class="math inline">\(A_k\)</span> a height which is proportional to the number of points <span class="math inline">\(n_k\)</span> that fall into it. In other words, if we have a set of observed data points <span class="math inline">\(\mathcal{D} = \{x_1, \cdots x_n\}\)</span> ordered by value (i.e. <span class="math inline">\(x_i \leq x_j\)</span> iff <span class="math inline">\(i \leq j\)</span>), we define <span class="math inline">\(n_k\)</span> as:</p>
+<p>Bin <span class="math inline">\(A_k\)</span> is also assigned a height, which is proportional to the number of points <span class="math inline">\(n_k\)</span> that fall into it. In other words, if we have a set of observed data points <span class="math inline">\(\mathcal{D} = \{x_1, \cdots x_n\}\)</span> ordered by value (i.e. <span class="math inline">\(x_i \leq x_j\)</span> iff <span class="math inline">\(i \leq j\)</span>), we define <span class="math inline">\(n_k\)</span> as:</p>
 <p><span class="math display">\[
 n_k = \left|\mathcal{D} \cap A_k\right|
 \]</span></p>
-<p>and assign a height to <span class="math inline">\(A_k\)</span> which is proportional to <span class="math inline">\(n_k\)</span>. In particular, we could say that <span class="math inline">\(n_k\)</span> is the height of the bin, in which case we would have a frequency histogram.</p>
-<p>Using the example from <a href="https://www.youtube.com/watch?v=tTxV2TdvFyU">Walford’s lecture</a>, we take the <a href="https://en.wikipedia.org/wiki/Old_Faithful">Old Faithful’s</a> eruption dataset as our starting point.</p>
+<p>and assign a height to <span class="math inline">\(A_k\)</span> which is proportional to <span class="math inline">\(n_k\)</span>. In particular, we could assign a height to <span class="math inline">\(A_k\)</span> which is equal to <span class="math inline">\(n_k\)</span> (as <span class="math inline">\(n_k\)</span> is surely proportional to itself), in which case we would have a frequency histogram.</p>
+<p>Let us now look at an example, based on the <a href="https://en.wikipedia.org/wiki/Old_Faithful">Old Faithful’s</a> eruption dataset. The first <span class="math inline">\(5\)</span> rows in the table are shown in Table <a href="#tab:sample">1</a>.</p>
 <pre class="r"><code>data(geyser, package = &#39;MASS&#39;)</code></pre>
-<p>The points corresponding to the duration of each eruption are:</p>
+<table>
+<caption><span id="tab:sample">Table 1: </span>First <span class="math inline">\(5\)</span> rows of the Old Faithful’s eruption dataset.</caption>
+<thead>
+<tr class="header">
+<th align="right">waiting</th>
+<th align="right">duration</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">80</td>
+<td align="right">4.016667</td>
+</tr>
+<tr class="even">
+<td align="right">71</td>
+<td align="right">2.150000</td>
+</tr>
+<tr class="odd">
+<td align="right">57</td>
+<td align="right">4.000000</td>
+</tr>
+<tr class="even">
+<td align="right">80</td>
+<td align="right">4.000000</td>
+</tr>
+<tr class="odd">
+<td align="right">75</td>
+<td align="right">4.000000</td>
+</tr>
+</tbody>
+</table>
+<p>The dataset contains two columns: <em>duration</em> and <em>waiting</em>, which describe the duration of an eruption and the time ellapsed until that eruption, respectively.</p>
+<p>We plot the points corresponding to the duration of each eruption in a line in Fig. <a href="#fig:line">1</a>. This gives us a rough idea of their distribution.</p>
 <pre class="r"><code>ggplot(geyser) + 
   geom_segment(aes(x = duration, xend = duration, y = -.1, yend = .1)) + 
   ylim(-1, 1) + 
@@ -48,13 +83,13 @@ n_k = \left|\mathcal{D} \cap A_k\right|
     axis.ticks.y = element_blank()
   ) +
   xlab(&#39;duration (minutes)&#39;)</code></pre>
-<div class="figure"><span id="fig:unnamed-chunk-3"></span>
-<img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-3-1.png" alt="Duration of Old Faithful's eruptions." width="768" />
+<div class="figure"><span id="fig:line"></span>
+<img src="/post/2018-06-08-density_files/figure-html/line-1.png" alt="Duration of Old Faithful's eruptions." width="768" />
 <p class="caption">
 Figure 1: Duration of Old Faithful’s eruptions.
 </p>
 </div>
-<p>A frequency histogram for these points would be:</p>
+<p>We can then use those to construct a frequency histogram, with <span class="math inline">\(10\)</span> equally-sized bins:</p>
 <pre class="r"><code>ggplot(geyser) + 
   geom_histogram(
     aes(x = duration), 
@@ -62,8 +97,8 @@ Figure 1: Duration of Old Faithful’s eruptions.
     bins = 10, 
     col = &#39;black&#39;
   )</code></pre>
-<p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-4-1.png" width="768" /></p>
-<p>When used for density estimation, however, histograms are typically rescaled so that the sum of the areas of the bars equals to one. This is accomplished by dividing each <span class="math inline">\(n_k\)</span> by the number of points <span class="math inline">\(n\)</span>, times the histogram width <span class="math inline">\(h\)</span>. We call this value <span class="math inline">\(\hat{p}_k\)</span>:</p>
+<p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-3-1.png" width="768" /></p>
+<p>When used for density estimation, however, histograms are typically rescaled so that the sum of the areas of the bars equals to one. This is accomplished by dividing each <span class="math inline">\(n_k\)</span> by the number of points <span class="math inline">\(n\)</span>, times the bin width <span class="math inline">\(h\)</span>, and assigning the resulting value to the bin’s height. We call this resulting value <span class="math inline">\(\hat{p}_k\)</span>:</p>
 <p><span class="math display">\[
 \hat{p}_k = \frac{n_k}{nh}
 \]</span></p>
@@ -80,7 +115,7 @@ Figure 1: Duration of Old Faithful’s eruptions.
 Figure 2: Durations of Old Faithful’s eruptions (density histogram).
 </p>
 </div>
-<p>Now let <span class="math inline">\(f(x)\)</span> be the unknown density function we are trying to estimate. A histogram essentially defines an approximate density function based on the sample <span class="math inline">\(\mathcal{D}\)</span>, which we name <span class="math inline">\(\hat{f}(x)\)</span> and which, for every <span class="math inline">\(x \in A_k\)</span>, states that the density of <span class="math inline">\(x\)</span> is <span class="math inline">\(\hat{f}(x) = p_k\)</span>. How far, then, is this approximation from the real density, <span class="math inline">\(f(x)\)</span>?</p>
+<p>Now let <span class="math inline">\(f(x)\)</span> be the unknown density function we are trying to estimate. A histogram essentially defines an approximate density function based on the sample <span class="math inline">\(\mathcal{D}\)</span>, which we name <span class="math inline">\(\hat{f}(x)\)</span> and which, for every <span class="math inline">\(x \in A_k\)</span>, states that the density of <span class="math inline">\(x\)</span> is <span class="math inline">\(\hat{f}(x) = \hat{p}_k\)</span>. How far, then, is this approximation from the real density, <span class="math inline">\(f(x)\)</span>?</p>
 <div id="histogram-bias" class="section level2">
 <h2>Histogram Bias</h2>
 <p>To understand the quality of the approximation that the histogram provides, we look at its bias:</p>
@@ -91,18 +126,18 @@ Figure 2: Durations of Old Faithful’s eruptions (density histogram).
 <p><span class="math display">\[
 \mathbb{E}\left[\hat{f}(x)\right] = \mathbb{E}\left[\frac{N_k}{nh}\right] = \frac{1}{nh}\mathbb{E}\left[N_k\right]
 \]</span></p>
-<p>Suppose we knew that the probability that a single sample ends up in bin <span class="math inline">\(A_k\)</span> is <span class="math inline">\(p_k\)</span>. The probability that we get <span class="math inline">\(N_k = m\)</span> samples out of <span class="math inline">\(n\)</span> (the size of <span class="math inline">\(\mathcal{D}\)</span>) in <span class="math inline">\(A_k\)</span> is then just the probability that we get <span class="math inline">\(m\)</span> heads out of <span class="math inline">\(n\)</span> coin flips for a coin where the probability of getting heads is <span class="math inline">\(p_k\)</span>. This means that <span class="math inline">\(N_k\)</span> follows a binomial distribution; i.e., <span class="math inline">\(N_k \sim \text{Binomial}(n, p_k)\)</span>. <span class="math inline">\(\mathbb{E}\left[N_k\right]\)</span> therefore is equal to <span class="math inline">\(np_k\)</span>, so that:</p>
+<p>Suppose we knew that the probability that a single sample ends up in bin <span class="math inline">\(A_k\)</span> is <span class="math inline">\(p_k\)</span> (which is different from its estimator, <span class="math inline">\(\hat{p}_k\)</span>). The probability that we get <span class="math inline">\(N_k = m\)</span> samples out of <span class="math inline">\(n\)</span> (the size of <span class="math inline">\(\mathcal{D}\)</span>) in <span class="math inline">\(A_k\)</span> is then just the probability that we get <span class="math inline">\(m\)</span> heads out of <span class="math inline">\(n\)</span> coin flips for a coin where the probability of getting heads is <span class="math inline">\(p_k\)</span>. This means that <span class="math inline">\(N_k\)</span> follows a binomial distribution; i.e., <span class="math inline">\(N_k \sim \text{Binomial}(n, p_k)\)</span>. <span class="math inline">\(\mathbb{E}\left[N_k\right]\)</span> therefore is equal to <span class="math inline">\(np_k\)</span>, so that:</p>
 <p><span class="math display">\[
 \frac{1}{nh}\mathbb{E}\left[N_k\right] = \frac{np_k}{nh} = \frac{p_k}{h}
 \]</span></p>
-<p>Now note that <span class="math inline">\(p_k\)</span> is the probability that one sample falls in bin <span class="math inline">\(A_k\)</span>; i.e., that it falls between <span class="math inline">\(t_k\)</span> and <span class="math inline">\(t_{k+1}\)</span>. This is shown in Fig. <a href="#fig:density-bin">3</a>:</p>
+<p>Now note that <span class="math inline">\(p_k\)</span> is the probability that one sample falls in bin <span class="math inline">\(A_k\)</span>; i.e., that it falls between <span class="math inline">\(t_k\)</span> and <span class="math inline">\(t_{k+1}\)</span>.</p>
 <div class="figure"><span id="fig:density-bin"></span>
 <img src="/img/posts/2017-06-08-density/density-bin.png" alt="Histogram bins and the underlying density."  />
 <p class="caption">
 Figure 3: Histogram bins and the underlying density.
 </p>
 </div>
-<p>This means that <span class="math inline">\(p_k\)</span> can be expressed in terms of <span class="math inline">\(f\)</span> as:</p>
+<p>Fig. <a href="#fig:density-bin">3</a> tells us, however, that <span class="math inline">\(p_k\)</span> can be expressed in terms of <span class="math inline">\(f\)</span> as:</p>
 <p><span class="math display" id="eq:integral">\[
 \begin{equation}
   p_k = \mathbb{P}[t_k \leq X \leq t_{k + 1}] = \int_{t_k}^{t_{k+1}} f(x)\,dx = F(t_{k+1}) - F(t_{k}) 
@@ -116,7 +151,7 @@ Figure 3: Histogram bins and the underlying density.
   \tag{2}
 \end{equation}
 \]</span></p>
-<p>What Eq. <a href="#eq:hist-bias">(2)</a> tells us is that the bias for the histogram depends on <span class="math inline">\(h\)</span> but not on <span class="math inline">\(n\)</span>. In particular, the bias will be small at <span class="math inline">\(x\)</span> as <span class="math inline">\(p_k\)</span> approaches <span class="math inline">\(hf(x)\)</span>. Further, Eq. <a href="#eq:integral">(1)</a> tells us that the bias will be small for any <span class="math inline">\(x\)</span> as <span class="math inline">\(h\)</span> tends to zero, given that:</p>
+<p>What Eq. <a href="#eq:hist-bias">(2)</a> tells us is that the bias for the histogram depends on <span class="math inline">\(h\)</span> but not on <span class="math inline">\(n\)</span>, which is reasonable. In particular, the bias will be small at <span class="math inline">\(x\)</span> as <span class="math inline">\(p_k\)</span> approaches <span class="math inline">\(hf(x)\)</span>. Further, Eq. <a href="#eq:integral">(1)</a> tells us that the bias will be small for any <span class="math inline">\(x\)</span> as <span class="math inline">\(h\)</span> tends to zero, given that:</p>
 <p><span class="math display" id="eq:hconvergence">\[
 \begin{equation}
   \lim_{h \to 0} \frac{p_k}{h} = \lim_{h \to 0} \frac{F(t_{k+1}) - F(t_{k+1} - h)}{h} = f(t_{k+1}) \stackrel{*}{=} f(x)
@@ -313,7 +348,7 @@ plot.ash &lt;- function(ash) {
 <pre class="r"><code>plot(ash(geyser$duration, m = 5, nbins = 10)) + 
   xlab(&#39;duration&#39;) +
   ggtitle(&#39;Duration of Old Faithful\&#39;s Eruptions (ASH, m = 5, 10 bins)&#39;)</code></pre>
-<p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
 <p>As we can see, the result is a much smoother function, with features that resemble the ones we could see in the SHOs of Fig. <a href="#fig:shos">6</a>. ## Connection to Kernel Methods</p>
 <p>ASHes have some nice properties which they share with <a href="https://en.wikipedia.org/wiki/Kernel_density_estimation">kernel methods</a>. Scott <span class="citation">[<a href="#ref-scott-92">1</a>]</span> describes them as a middle ground between a kernel estimator in terms of <a href="https://en.wikipedia.org/wiki/Efficiency_(statistics)">statistical efficiency</a> (which I presume to mean that their variance decreases faster with an equivalent number of samples than that of a histogram of equivalent bias) and yet are much cheaper to compute due to their relative simplicity.</p>
 <p>While discussing matters of statistical efficiency is beyond the scope of this post (though I am certain to revisit it in later posts), it is nevertheless interesting to discuss the shape of the weight function and its relationship to the <em>triangle kernel</em>.</p>
