@@ -349,7 +349,10 @@ plot.ash &lt;- function(ash) {
   xlab(&#39;duration&#39;) +
   ggtitle(&#39;Duration of Old Faithful\&#39;s Eruptions (ASH, m = 5, 10 bins)&#39;)</code></pre>
 <p><img src="/post/2018-06-08-density_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
-<p>As we can see, the result is a much smoother function, with features that resemble the ones we could see in the SHOs of Fig. <a href="#fig:shos">6</a>. ## Connection to Kernel Methods</p>
+<p>As we can see, the result is a much smoother function, with features that resemble the ones we could see in the SHOs of Fig. <a href="#fig:shos">6</a>.</p>
+</div>
+<div id="connection-to-kernel-methods" class="section level2">
+<h2>Connection to Kernel Methods</h2>
 <p>ASHes have some nice properties which they share with <a href="https://en.wikipedia.org/wiki/Kernel_density_estimation">kernel methods</a>. Scott <span class="citation">[<a href="#ref-scott-92">1</a>]</span> describes them as a middle ground between a kernel estimator in terms of <a href="https://en.wikipedia.org/wiki/Efficiency_(statistics)">statistical efficiency</a> (which I presume to mean that their variance decreases faster with an equivalent number of samples than that of a histogram of equivalent bias) and yet are much cheaper to compute due to their relative simplicity.</p>
 <p>While discussing matters of statistical efficiency is beyond the scope of this post (though I am certain to revisit it in later posts), it is nevertheless interesting to discuss the shape of the weight function and its relationship to the <em>triangle kernel</em>.</p>
 <p>We start by dividing each of our intervals <span class="math inline">\(A_k\)</span> (our bins of length <span class="math inline">\(h\)</span>) into <span class="math inline">\(m\)</span> subparts, as depicted in Fig. <a href="#fig:subparts">7</a>. Each subpart is actually a smaller bin, which we refer to as <span class="math inline">\(B_i\)</span>. For ease of notation, we assume that <span class="math inline">\(x\)</span> is contained in small bin <span class="math inline">\(B_0\)</span>, and give negative indices to the small bins to the left of <span class="math inline">\(x\)</span>. Finally, let <span class="math inline">\(v_i\)</span> be the number of points in our sample that fall in small bin <span class="math inline">\(B_i\)</span> (<span class="math inline">\(\sum v_i = \sum n_i = n\)</span>).</p>
@@ -362,24 +365,24 @@ Figure 7: Shifted histograms and their partial estimates.
 <p>We know that the density estimate at <span class="math inline">\(x\)</span> is the average density coming from <span class="math inline">\(m\)</span> overlapping histograms. Looking at Fig. <a href="#fig:subparts">7</a>, we see that we can express those in terms of the <span class="math inline">\(v_i\)</span> as follows:</p>
 <p><span class="math display">\[
 \begin{align}
-  \hat{f_0}(x) =&amp; \frac{1}{h}(v_0 + \cdots v_{m - 1})\\
-  \hat{f_1}(x) =&amp; \frac{1}{h}\left(v_{-1} + v_0 + \cdots v_{m - 2}\right) \\
-  \hat{f_1}(x) =&amp; \frac{1}{h}\left(v_{-1} + v_{-2} + v_0 + \cdots v_{m - 2}\right) \\
+  \hat{f_0}(x) =&amp; \frac{1}{nh}(v_0 + \cdots + v_{m - 1})\\
+  \hat{f_1}(x) =&amp; \frac{1}{nh}\left(v_{-1} + v_0 + \cdots v_{m - 2}\right) \\
+  \hat{f_2}(x) =&amp; \frac{1}{nh}\left(v_{-2} + v_{-1} + v_0 + \cdots v_{m - 3}\right) \\
   \cdots&amp;\\
-  \hat{f_i}(x) =&amp; \frac{1}{h}\left(\sum_{j=1}^{i} v_{-j} + v_0 + \sum_{k = 1}^{m - i + 1}v_{k}\right)\\
+  \hat{f_i}(x) =&amp; \frac{1}{nh}\left(\sum_{j=1}^{i} v_{-j} + v_0 + \sum_{k = 1}^{m - i + 1}v_{k}\right)\\
   \cdots&amp;\\
-  \hat{f}_{m - 1}(x) =&amp; \frac{1}{h}\left(\sum_{j=1}^{m - 1} v_{-j} + 0\right)
+  \hat{f}_{m - 1}(x) =&amp; \frac{1}{nh}\left(\sum_{j=1}^{m - 1} v_{-j} + 0\right)
 \end{align}
 \]</span></p>
 <p>We have, therefore that:</p>
 <p><span class="math display" id="eq:sum">\[
 \begin{equation}
-  \frac{1}{m}\sum_{j=0}^{m-1}\hat{f_j}(x) = \frac{1}{m}\left[mv_0 + (m - 1)(v_{-1} + v_1) + \cdots 1(v_{m - 1} + v_{-(m - 1)})\right] = \\
-  \frac{1}{m} \sum_{j = 0}^{m-1} (m - j)(v_j + v_{-j})
+  \frac{1}{m}\sum_{j=0}^{m-1}\hat{f_j}(x) = \frac{1}{m}\frac{1}{nh}\left[mv_0 + (m - 1)(v_{-1} + v_1) + \cdots 1(v_{m - 1} + v_{-(m - 1)})\right] = \\
+  \frac{1}{m}\sum_{j = 0}^{m-1} \frac{(m - j)}{nh}(v_j + v_{-j})
   \tag{6}
 \end{equation}
 \]</span></p>
-<p>We can see Eq. <a href="#eq:sum">(6)</a> as a weighted sum, where the underlying weight function assigns weights <span class="math inline">\(m - j\)</span> to both <span class="math inline">\(v_j\)</span> and <span class="math inline">\(v_{-j}\)</span>. If we plot these weights as a function of <span class="math inline">\(v_i\)</span>, we can observe the shape of the weight function. We plot those in Fig. <a href="#fig:weights">8</a> for <span class="math inline">\(m \in \{5, 15, 100\}\)</span>. As we increase <span class="math inline">\(m\)</span>, the weight function approaches a continuous triangle and the behavior of ASHes approaches that of kernel density estimation with a triangular kernel.</p>
+<p>We can see Eq. <a href="#eq:sum">(6)</a> as a weighted sum, where the underlying weight function assigns weights <span class="math inline">\(\frac{m - j}{nh}\)</span> to both <span class="math inline">\(v_j\)</span> and <span class="math inline">\(v_{-j}\)</span>. If we plot these weights as a function of <span class="math inline">\(v_i\)</span>, we can observe the shape of the weight function. We plot those in Fig. <a href="#fig:weights">8</a> for <span class="math inline">\(m \in \{5, 15, 100\}\)</span>. As we increase <span class="math inline">\(m\)</span>, the weight function approaches a continuous triangle and the behavior of ASHes approaches that of kernel density estimation with a triangular kernel.</p>
 <div class="figure"><span id="fig:weights"></span>
 <img src="/post/2018-06-08-density_files/figure-html/weights-1.png" alt="The ASH weight function tends to the triangle kernel as $m \to +\infty$." width="672" />
 <p class="caption">

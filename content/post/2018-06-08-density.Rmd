@@ -393,6 +393,7 @@ plot(ash(geyser$duration, m = 5, nbins = 10)) +
 ```
 
 As we can see, the result is a much smoother function, with features that resemble the ones we could see in the SHOs of Fig. \@ref(fig:shos). 
+
 ## Connection to Kernel Methods
 
 ASHes have some nice properties which they share with [kernel methods](https://en.wikipedia.org/wiki/Kernel_density_estimation). Scott [@scott-92] describes them as a middle ground between a kernel estimator in terms of [statistical efficiency](https://en.wikipedia.org/wiki/Efficiency_(statistics)) (which I presume to mean that their variance decreases faster with an equivalent number of samples than that of a histogram of equivalent bias) and yet are much cheaper to compute due to their relative simplicity.
@@ -409,13 +410,13 @@ We know that the density estimate at $x$ is the average density coming from $m$ 
 
 $$
 \begin{align}
-  \hat{f_0}(x) =& \frac{1}{h}(v_0 + \cdots v_{m - 1})\\
-  \hat{f_1}(x) =& \frac{1}{h}\left(v_{-1} + v_0 + \cdots v_{m - 2}\right) \\
-  \hat{f_1}(x) =& \frac{1}{h}\left(v_{-1} + v_{-2} + v_0 + \cdots v_{m - 2}\right) \\
+  \hat{f_0}(x) =& \frac{1}{nh}(v_0 + \cdots + v_{m - 1})\\
+  \hat{f_1}(x) =& \frac{1}{nh}\left(v_{-1} + v_0 + \cdots v_{m - 2}\right) \\
+  \hat{f_2}(x) =& \frac{1}{nh}\left(v_{-2} + v_{-1} + v_0 + \cdots v_{m - 3}\right) \\
   \cdots&\\
-  \hat{f_i}(x) =& \frac{1}{h}\left(\sum_{j=1}^{i} v_{-j} + v_0 + \sum_{k = 1}^{m - i + 1}v_{k}\right)\\
+  \hat{f_i}(x) =& \frac{1}{nh}\left(\sum_{j=1}^{i} v_{-j} + v_0 + \sum_{k = 1}^{m - i + 1}v_{k}\right)\\
   \cdots&\\
-  \hat{f}_{m - 1}(x) =& \frac{1}{h}\left(\sum_{j=1}^{m - 1} v_{-j} + 0\right)
+  \hat{f}_{m - 1}(x) =& \frac{1}{nh}\left(\sum_{j=1}^{m - 1} v_{-j} + 0\right)
 \end{align}
 $$
 
@@ -424,13 +425,13 @@ We have, therefore that:
 
 $$
 \begin{equation}
-  \frac{1}{m}\sum_{j=0}^{m-1}\hat{f_j}(x) = \frac{1}{m}\left[mv_0 + (m - 1)(v_{-1} + v_1) + \cdots 1(v_{m - 1} + v_{-(m - 1)})\right] = \\
-  \frac{1}{m} \sum_{j = 0}^{m-1} (m - j)(v_j + v_{-j})
+  \frac{1}{m}\sum_{j=0}^{m-1}\hat{f_j}(x) = \frac{1}{m}\frac{1}{nh}\left[mv_0 + (m - 1)(v_{-1} + v_1) + \cdots 1(v_{m - 1} + v_{-(m - 1)})\right] = \\
+  \frac{1}{m}\sum_{j = 0}^{m-1} \frac{(m - j)}{nh}(v_j + v_{-j})
   (\#eq:sum)
 \end{equation}
 $$
 
-We can see Eq. \@ref(eq:sum) as a weighted sum, where the underlying weight function assigns weights $m - j$ to both $v_j$ and $v_{-j}$. If we plot these weights as a function of $v_i$, we can observe the shape of the weight function. We plot those in Fig. \@ref(fig:weights) for $m \in \{5, 15, 100\}$. As we increase $m$, the weight function approaches a continuous triangle and the behavior of ASHes approaches that of kernel density estimation with a triangular kernel.
+We can see Eq. \@ref(eq:sum) as a weighted sum, where the underlying weight function assigns weights $\frac{m - j}{nh}$ to both $v_j$ and $v_{-j}$. If we plot these weights as a function of $v_i$, we can observe the shape of the weight function. We plot those in Fig. \@ref(fig:weights) for $m \in \{5, 15, 100\}$. As we increase $m$, the weight function approaches a continuous triangle and the behavior of ASHes approaches that of kernel density estimation with a triangular kernel.
 
 ```{r echo=FALSE}
 weight_fun <- function(m) {
