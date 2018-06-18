@@ -10,7 +10,7 @@ title = "Giuliano Mega"
 
 # Your copyright notice - appears in site footer.
 # To display a copyright symbol, type `&copy;`.
-copyright = "&copy; 2018"
+copyright = "&copy; 2018 Giuliano Mega"
 
 theme = "hugo-academic"
 enableEmoji = true
@@ -23,7 +23,7 @@ paginate = 10
 disqusShortname = "giuliano-mega"
 
 # Enable analytics by entering your Google Analytics tracking ID
-googleAnalytics = ""
+googleAnalytics = "UA-27452912-2"
 
 # Default language to use (if you setup multilingual support)
 defaultContentLanguage = "en"

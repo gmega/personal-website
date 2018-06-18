@@ -24,7 +24,7 @@ library(gridExtra)
 
 Histograms are probably one the most intuitive ways of performing [density estimation](https://en.wikipedia.org/wiki/Density_estimation) in numerical data. In this writeup, I discuss some of their deeper meanings and properties, as I try to digest [Wayne Oldford's](https://uwaterloo.ca/statistics-and-actuarial-science/people-profiles/wayne-oldford) excellent [lecture on the subject](https://www.youtube.com/watch?v=tTxV2TdvFyU). 
 
-In particular, we look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We then discuss a form of histogram that is much less sensitive to the _location_ of bin boundaries, called an Average Shifted Histogram [@scott-92]. This kind of histogram has deeper connections to kernel methods, and we will therefore touch briefly on those too.
+In particular, we look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We then discuss a form of histogram that is much less sensitive to the _location_ of bin boundaries, called an Average Shifted Histogram [@scott-92]. This kind of histogram has deeper connections to [kernel density estimation](https://en.wikipedia.org/wiki/Kernel_density_estimation), and we will therefore touch briefly on that too.
 
 I believe this kind of reflection to be a useful exercise to any practitioner without a background in statistics (e.g., me) who has found herself tweaking histogram parameters, wondering about their limitations, and wondering as to whether better methods existed.
 
@@ -426,7 +426,7 @@ We have, therefore that:
 $$
 \begin{equation}
   \frac{1}{m}\sum_{j=0}^{m-1}\hat{f_j}(x) = \frac{1}{m}\frac{1}{nh}\left[mv_0 + (m - 1)(v_{-1} + v_1) + \cdots 1(v_{m - 1} + v_{-(m - 1)})\right] = \\
-  \frac{1}{m}\sum_{j = 0}^{m-1} \frac{(m - j)}{nh}(v_j + v_{-j})
+  = \frac{1}{m}\sum_{j = 0}^{m-1} \frac{(m - j)}{nh}(v_j + v_{-j})
   (\#eq:sum)
 \end{equation}
 $$
