@@ -13,7 +13,9 @@
   {{/* Generate page description. */}}
   {{ $scr.Set "description" .Site.Params.role }}
   {{ if .IsPage }}
-    {{ if .Params.abstract }}
+    {{ if .Params.summary }}
+      {{ $scr.Set "description" .Params.summary }}
+    {{ else if .Params.abstract }}
       {{ $scr.Set "description" .Params.abstract }}
     {{ else }}
       {{ $scr.Set "description" .Summary }}
