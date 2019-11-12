@@ -128,7 +128,7 @@ class RubyGen
       rescue => e
         @exception = e
       ensure
-        @next_get.call
+        @warp_caller.call
       end
     end
   end
