@@ -12,7 +12,7 @@ output:
     highlight: pygments
 ---
 
-I have been doing some Ruby programming as part of my recent work ventures, and I think a nice way to learn a new language is by asking questions on how to map your previous understanding on how to do things into this new environment, and discovering new ways of doing things along the way. 
+I have been doing some Ruby programming as part of my recent work ventures, and I think a nice way to learn a new language is by asking questions on how to map your previous understanding on how to do things into this new environment, and discovering new ways of doing things in the process. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(class.source = "numberLines lineAnchors")
@@ -45,14 +45,14 @@ Another way of looking at a computation running as a generator function is as a 
 
 Well, the Ruby language does not have generators. It does have [Fibers](https://ruby-doc.org/core-2.5.0/Fiber.html), which can accomplish pretty much the same thing, but, more interestingly from a learning perspective, it has [native support for continuations](https://ruby-doc.org/core-2.5.0/Continuation.html). 
 
-[Continuations](https://en.wikipedia.org/wiki/Continuation) are a powerful control flow construct which allows you to "save" the current state of the computation and then resume from that saved point whenever you like. This is similar to what generators do, except that with a generator you are always resuming a "paused" computation (the generator function) which then resumes running until it either finishes or yields control to the caller again. For instance, in our [Python generator](#python-listing-1), the [call to yield](#cb1-4) will suspend the execution of the loop producing a value to the caller. [Subsequent calls to `next`](#cb2-2) will resume the computation at exactly that point, and the generator will pick up from where it had stopped.
+[Continuations](https://en.wikipedia.org/wiki/Continuation) are a powerful control flow construct which allows you to "save" the current state of the computation and then resume from that saved point whenever you like. This is similar to what generators do, except that with a generator you are always resuming a "paused" computation (the generator function) which then resumes running until it either finishes or yields control to the caller again. For instance, in our [Python generator](#python-listing-1), the [call to yield](#cb1-4) will suspend the execution of the generator function loop producing a value to the caller. Similarly, [calling `next`](#cb2-2) will suspend the caller and resume the generator until it yields again.
 
-That is not what happens with continuations. Continuations will simply resume the computation from where it was, losing the state of the caller and effectively jumping back in time to when the continuation got created, as if the computation that happened after that never existed. The only trace you have that something else has happened when resuming from a continuation are eventual side effects that the preceding computation may have left behind before jumping back.
+That is not what happens with continuations. When called, a continuation will simply resume the computation from where it was created, losing the state of the caller as if the computation that happened after the continuation never existed. The only trace you will have that something else has happened when resuming from a continuation are eventual side effects that the preceding computation may have left behind before jumping back.
 
 This leads to the widely cited ["continuation sandwich"](https://groups.google.com/group/perl.perl6.language/msg/b0cfa757f0ce1cfd) example:
 
 <center style='margin-bottom: 25px'>
-_Say you're in the kitchen in front of the refrigerator, thinking about a sandwitch.  You take a continuation right there and stick it in your pocket.  Then you get some turkey and bread out of the refrigerator and
+_Say you're in the kitchen in front of the refrigerator, thinking about a sandwitch [sic].  You take a continuation right there and stick it in your pocket.  Then you get some turkey and bread out of the refrigerator and
 make yourself a sandwitch, which is now sitting on the counter.  You invoke the continuation in your pocket, and you find yourself standing in front of the refrigerator again, thinking about a sandwitch.  But fortunately, there's a sandwitch on the counter, and all the materials used to make it are gone.  So you eat it. :-)_
 </center>
 
@@ -90,9 +90,9 @@ Regardless, it should also be relatively clear that continuations are a more gen
 
 # Ruby Generators with call/cc
 
-The main issue with pure continuations is that they are a kind of one-way construct: the caller of the continuation can warp back to the past where the continuation was created, but it is not possible to do some computation and then warp back to the future with a value. We can achieve that, however, by using pairs of continuations at a time.
+The main issue with pure continuations is that they are a kind of one-way construct: the caller of the continuation can warp back to the past where the continuation was created, but it is not possible to just do some computation and then warp back to the future with a value. We can achieve that, however, by adding a second continuation to store caller state.
 
-The general idea is that use one continuation A to store the state of the generator's computation when it yields, and another continuation B to store the state of the caller when it calls `next`. The generator can then call continuation B and warp back to the caller when it yields, whilst the caller can call continuation A and warp back to the generator when it calls `next`. This idea is expressed into code below:
+The general idea is that we use one continuation **A** to store the state of the generator's computation when it yields, and another continuation **B** to store the state of the caller when it calls `next`. The generator can then call continuation **B** and warp back to the caller when it yields, whilst the caller can call continuation **A** and warp back to the generator when it calls `next`. This idea is expressed into code below:
 
 ```{ruby}
 require 'continuation'
@@ -117,17 +117,21 @@ class RubyGen
   #   gen.next # raises StopIteration
   #
   def initialize(*pars, &block)
-    @warp_generator = nil
-    @warp_caller = nil
+    @warp_generator = nil # Continuation A
+    @warp_caller = nil    # Continuation B
     @exception = nil
     @block = -> do
       begin
         block.call(self, *pars)
-        # Not exactly great Ruby etiquette... but we're just messing around.
+        # Not exactly great Ruby etiquette... 
+        # but we're just messing around.
         @exception = StopIteration
       rescue => e
         @exception = e
       ensure
+        # Don't forget to transfer control back
+        # to caller when the block ends, whichever
+        # way it ends.
         @warp_caller.call
       end
     end
