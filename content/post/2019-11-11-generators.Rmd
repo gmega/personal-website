@@ -1,0 +1,180 @@
+---
+title: "Python-style Generators in Ruby"
+author: "Giuliano Mega"
+date: 2019-11-11T00:00:00
+categories: ["programming", "Ruby"]
+tags: ["generators", "continuations", "Python"]
+summary: 'I have been doing some Ruby programming as part of my recent work ventures, and I think a nice way to learn a new language is trying to understand how to map your previous way of doing things into this new environment, and discovering new things along the way. Having been programming in Python for the best part of the last 4 years, I got used to as a convenient way of structuring certain computations.'
+
+output:
+  blogdown::html_page:
+    df_print: paged
+    highlight: pygments
+---
+
+I have been doing some Ruby programming as part of my recent work ventures, and I think a nice way to learn a new language is by asking questions on how to map your previous understanding on how to do things into this new environment, and discovering new ways of doing things along the way. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(class.source = "numberLines lineAnchors")
+```
+
+# Python Generators
+
+Having been programming in Python for the best part of the last 4 years, I got used to [generators](https://wiki.python.org/moin/Generators) (or, equivalently, generator functions) as a convenient way of structuring certain computations. Generators are akin to interruptible computations which can yield control at specified points in time and then be resumed later as required. Further, whenever a generator yields control, it can return a value. 
+
+This makes them particularly suited to the implementation of iterators whose values are generated from a computation, on-the-fly. Let's look at a Python example of an infinite enumeration, a generator which yields one integer number after the other until infinity: <a name="python-listing-1"></a>
+
+```{python}
+def infinite_enum(start):
+  i = start
+  while True:
+    yield i
+    i += 1
+```
+
+The call to `yield` in the function above means that every time the generator hits that line, it will yield control to the caller and return the current value for `i`:
+
+```{python}
+gen = infinite_enum(5)
+print 'The first three elements are:', next(gen), next(gen), next(gen)
+```
+
+Another way of looking at a computation running as a generator function is as a thread that can voluntarily yield control. A group of such generators could then be coordinated so that when one yields, another one runs, effectively transforming groups of generators into a mechanism for cooperative multitasking. Indeed, the more recent work on [Python coroutines](https://docs.python.org/3/library/asyncio-task.html) (part of [asyncio](https://docs.python.org/3/library/asyncio.html)) leverages the generator infrastructure very much this way. But enough about Python.
+
+# What about Ruby?
+
+Well, the Ruby language does not have generators. It does have [Fibers](https://ruby-doc.org/core-2.5.0/Fiber.html), which can accomplish pretty much the same thing, but, more interestingly from a learning perspective, it has [native support for continuations](https://ruby-doc.org/core-2.5.0/Continuation.html). 
+
+[Continuations](https://en.wikipedia.org/wiki/Continuation) are a powerful control flow construct which allows you to "save" the current state of the computation and then resume from that saved point whenever you like. This is similar to what generators do, except that with a generator you are always resuming a "paused" computation (the generator function) which then resumes running until it either finishes or yields control to the caller again. For instance, in our [Python generator](#python-listing-1), the [call to yield](#cb1-4) will suspend the execution of the loop producing a value to the caller. [Subsequent calls to `next`](#cb2-2) will resume the computation at exactly that point, and the generator will pick up from where it had stopped.
+
+That is not what happens with continuations. Continuations will simply resume the computation from where it was, losing the state of the caller and effectively jumping back in time to when the continuation got created, as if the computation that happened after that never existed. The only trace you have that something else has happened when resuming from a continuation are eventual side effects that the preceding computation may have left behind before jumping back.
+
+This leads to the widely cited ["continuation sandwich"](https://groups.google.com/group/perl.perl6.language/msg/b0cfa757f0ce1cfd) example:
+
+<center style='margin-bottom: 25px'>
+_Say you're in the kitchen in front of the refrigerator, thinking about a sandwitch.  You take a continuation right there and stick it in your pocket.  Then you get some turkey and bread out of the refrigerator and
+make yourself a sandwitch, which is now sitting on the counter.  You invoke the continuation in your pocket, and you find yourself standing in front of the refrigerator again, thinking about a sandwitch.  But fortunately, there's a sandwitch on the counter, and all the materials used to make it are gone.  So you eat it. :-)_
+</center>
+
+
+In Ruby, in particular, any changes made to variables which were in scope when the continuation got created will be preserved. 
+
+To get a more concrete idea of what all this means, let us examine the program below:
+
+```{ruby}
+require 'continuation'
+
+$cc = nil
+results = []
+def fun
+  i = 0
+  callcc { |cc| $cc = cc }
+  i += 1
+  i
+end
+
+results << r = fun
+$cc.call unless r >= 10
+puts 'Result is: ' + results.join(', ')
+```
+
+We begin by looking at line [12](#cb4-12), where we call function `fun`. This function: _i)_ declares a variable named `i` (line [6](#cb4-6)); _ii)_ creates and stores a continuation in global variable `$cc` with [callcc](https://ruby-doc.org/core-2.5.0/Kernel.html#method-i-callcc) (line [7](#cb4-7)); increments and returns `i` (lines [8-9](#cb4-8)). We then store the result into local variable `r`, and push it into the array `results`. The first call will produce a 1.
+
+Next, we hit line [13](#cb4-13) and call back the continuation with `$cc.call`. This causes us to jump back to when the continuation got created; i.e., back into line [7](#cb4-7). At that point, there is no way to tell that we got there from a jump and are not visiting line [7](#cb4-7) for the first time, except that the value of `i` will be already 1 (recall that changes made to variables in scope are preserved, even if such changes are made _after_ the continuation was created). `i` will be then incremented again and the function will return from the original call again in line [12](#cb4-12) again, except that it will return a 2 instead of a 1 this time. 
+
+This will happen another 8 times, until finally `fun` will return 10, causing line [13](#cb4-13) to be skipped and the result, an array with numbers 1 to 10 (our sandwich!), to be printed in line [14](#cb4-14).
+
+I hope that this example illustrates just how confusing a program that uses continuations, which are often [compared to GOTO statements](https://en.wikipedia.org/wiki/Goto#Continuations), can get. The runtime complexity required to support them is also significant, which is the reason why continuations got [deprecated in Ruby](https://bugs.ruby-lang.org/issues/10548) about five years ago, but are still hanging in there.
+
+Regardless, it should also be relatively clear that continuations are a more general concept than generators, and that it should be possible to implement generators on top of them if one so desires. Indeed, this is where we are headed next.
+
+# Ruby Generators with call/cc
+
+The main issue with pure continuations is that they are a kind of one-way construct: the caller of the continuation can warp back to the past where the continuation was created, but it is not possible to do some computation and then warp back to the future with a value. We can achieve that, however, by using pairs of continuations at a time.
+
+The general idea is that use one continuation A to store the state of the generator's computation when it yields, and another continuation B to store the state of the caller when it calls `next`. The generator can then call continuation B and warp back to the caller when it yields, whilst the caller can call continuation A and warp back to the generator when it calls `next`. This idea is expressed into code below:
+
+```{ruby}
+require 'continuation'
+
+##
+# Python-style generators in Ruby using continuations.
+
+class RubyGen
+
+  ##
+  # Creates a new generator.
+  #
+  # = Example
+  #
+  #   gen = RubyGen.new(3, 5) do |gen, x, y|
+  #     (x..y).each { |i| gen.yield(i) }
+  #   end
+  #
+  #   gen.next # returns 3
+  #   gen.next # returns 4
+  #   gen.next # returns 5
+  #   gen.next # raises StopIteration
+  #
+  def initialize(*pars, &block)
+    @warp_generator = nil
+    @warp_caller = nil
+    @exception = nil
+    @block = -> do
+      begin
+        block.call(self, *pars)
+        # Not exactly great Ruby etiquette... but we're just messing around.
+        @exception = StopIteration
+      rescue => e
+        @exception = e
+      ensure
+        @next_get.call
+      end
+    end
+  end
+
+  def yield(value)
+    @value = value
+    callcc do |cc|
+      # Saves generator state so we can "warp into" 
+      # the generator on the next call to `next`.
+      @warp_generator = cc
+      # Warps back to caller.
+      @warp_caller.call(value)
+    end
+  end
+
+  def next
+    value = callcc do |cc|
+      # Saves caller state so we can "warp back" to the caller
+      # when the generator yields.
+      @warp_caller = cc
+      # Warps into the generator.
+      @warp_generator.nil? ? @block.call : @warp_generator.call
+    end
+    raise @exception unless @exception.nil?
+    value
+  end
+
+end
+```
+
+To implement the same generator as we had in our [Python example](#python-listing-1), we would then write:
+
+```{ruby eval = FALSE}
+gen = RubyGen.new(5) do |context, start|
+  i = start
+  loop do
+    context.yield(i)
+    i += 1
+  end
+end
+```
+
+and finally, running:
+
+```{ruby eval = FALSE}
+print 'The first three elements are: ', [gen.next, gen.next, gen.next].join(' ')
+```
+
+will print `The first three elements are: 5 6 7`, just like in our Python example. 

@@ -21,7 +21,7 @@ link-citations: true
 
 
 <p>Histograms are probably one the most intuitive ways of performing <a href="https://en.wikipedia.org/wiki/Density_estimation">density estimation</a> in numerical data. In this writeup, I discuss some of their deeper meanings and properties, as I try to digest <a href="https://uwaterloo.ca/statistics-and-actuarial-science/people-profiles/wayne-oldford">Wayne Oldford’s</a> excellent <a href="https://www.youtube.com/watch?v=tTxV2TdvFyU">lecture on the subject</a>.</p>
-<p>In particular, we look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We then discuss a form of histogram that is much less sensitive to the <em>location</em> of bin boundaries, called an Average Shifted Histogram <span class="citation">[<a href="#ref-scott-92">1</a>]</span>. This kind of histogram has deeper connections to kernel methods, and we will therefore touch briefly on those too.</p>
+<p>In particular, we look at how well one can expect to approximate an underlying density as one has access to more samples and utilizes narrower bins. We then discuss a form of histogram that is much less sensitive to the <em>location</em> of bin boundaries, called an Average Shifted Histogram <span class="citation">[<a href="#ref-scott-92">1</a>]</span>. This kind of histogram has deeper connections to <a href="https://en.wikipedia.org/wiki/Kernel_density_estimation">kernel density estimation</a>, and we will therefore touch briefly on that too.</p>
 <p>I believe this kind of reflection to be a useful exercise to any practitioner without a background in statistics (e.g., me) who has found herself tweaking histogram parameters, wondering about their limitations, and wondering as to whether better methods existed.</p>
 <div id="histograms" class="section level1">
 <h1>Histograms</h1>
@@ -219,13 +219,13 @@ p_k = \int_{t_k}^{t_{k+1}} f(x)\,dx = hf(\xi)
 \end{equation}
 \]</span></p>
 <p>where the last inequality holds because both <span class="math inline">\(x\)</span> and <span class="math inline">\(\xi\)</span> are in <span class="math inline">\(A_k\)</span> and, therefore, cannot be farther apart by more than <span class="math inline">\(h\)</span>, the width of the bin <span class="math inline">\(A_k\)</span>.</p>
-<p>One way of looking at what Eq. <a href="#eq:bias-bound">(5)</a> is saying is that the closer the slope of <span class="math inline">\(f\)</span> over <span class="math inline">\(A_k\)</span> is to zero, the wider the rectangles we can use to approximate <span class="math inline">\(f\)</span> acceptably. Although this is only an upper bound, the result is intuitive: a flatter function is easier to represent with a rectangle than a function that varies steeply, up or down<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>.</p>
+<p>One way of looking at what Eq. <a href="#eq:bias-bound">(5)</a> is saying is that the closer the slope of <span class="math inline">\(f\)</span> over <span class="math inline">\(A_k\)</span> is to zero, the wider the rectangles we can use to approximate <span class="math inline">\(f\)</span> acceptably. Although this is only an upper bound, the result is intuitive: a flatter function is easier to represent with a rectangle than a function that varies steeply, up or down<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>.</p>
 </div>
 </div>
 <div id="location-variance-and-average-shifted-histograms" class="section level1">
 <h1>Location Variance and Average Shifted Histograms</h1>
 <p>So far we have touched upon fundamental theoretical properties of histograms which we cannot do much about. We will now discuss something that wfe can actually improve: histogram variance due to bin alignment.</p>
-<p>The main issue relates to the fact that we can generate differently shaped histograms by simply varying the location of the first bin or, equivalently by shifting the data itself<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>. The effect is shown in Fig. <a href="#fig:shifting">5</a>, where we plot three histograms in which we shift the bins, initially aligned at <span class="math inline">\(0\)</span>, by two different values. Some features of the dataset, notably the peak near <span class="math inline">\(4\)</span>, get more pronounced in the rightmost histogram.</p>
+<p>The main issue relates to the fact that we can generate differently shaped histograms by simply varying the location of the first bin or, equivalently by shifting the data itself<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a>. The effect is shown in Fig. <a href="#fig:shifting">5</a>, where we plot three histograms in which we shift the bins, initially aligned at <span class="math inline">\(0\)</span>, by two different values. Some features of the dataset, notably the peak near <span class="math inline">\(4\)</span>, get more pronounced in the rightmost histogram.</p>
 <pre class="r"><code>breaks &lt;- function(X, bins, offset) {
   width &lt;- diff(range(X)) / bins
   offset + seq(min(X) - width, max(X), by = width)
@@ -404,7 +404,7 @@ Figure 8: The ASH weight function tends to the triangle kernel as <span class="m
 <div class="footnotes">
 <hr />
 <ol>
-<li id="fn1"><p>It is actually a bit more complicated than that: the equation says that the slope of whatever remains outside of the rectangle after we matched the areas will bound the bias, and you could have a very tall function which still looks like a rectangle. The intuition that “flatter” functions will have smaller biases is still nevertheless correct.<a href="#fnref1">↩</a></p></li>
-<li id="fn2"><p>While you could clearly just center the data, this is more of an issue when your data is already “cut” at a shifted location but you cannot know what the shift is, as in with an image, or with a time series. Further, the techniques developed here will pave the way for discussing kernel density estimation later on.<a href="#fnref2">↩</a></p></li>
+<li id="fn1"><p>It is actually a bit more complicated than that: the equation says that the slope of whatever remains outside of the rectangle after we matched the areas will bound the bias, and you could have a very tall function which still looks like a rectangle. The intuition that “flatter” functions will have smaller biases is still nevertheless correct.<a href="#fnref1" class="footnote-back">↩</a></p></li>
+<li id="fn2"><p>While you could clearly just center the data, this is more of an issue when your data is already “cut” at a shifted location but you cannot know what the shift is, as in with an image, or with a time series. Further, the techniques developed here will pave the way for discussing kernel density estimation later on.<a href="#fnref2" class="footnote-back">↩</a></p></li>
 </ol>
 </div>

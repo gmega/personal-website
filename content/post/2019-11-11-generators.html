@@ -1,0 +1,210 @@
+---
+title: "Python-style Generators in Ruby"
+author: "Giuliano Mega"
+date: 2019-11-11T00:00:00
+categories: ["programming", "Ruby"]
+tags: ["generators", "continuations", "Python"]
+summary: 'I have been doing some Ruby programming as part of my recent work ventures, and I think a nice way to learn a new language is trying to understand how to map your previous way of doing things into this new environment, and discovering new things along the way. Having been programming in Python for the best part of the last 4 years, I got used to as a convenient way of structuring certain computations.'
+
+output:
+  blogdown::html_page:
+    df_print: paged
+    highlight: pygments
+---
+
+<link href="/rmarkdown-libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/pagedtable/js/pagedtable.js"></script>
+<style type="text/css">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; left: -4em; }
+pre.numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<p>I have been doing some Ruby programming as part of my recent work ventures, and I think a nice way to learn a new language is by asking questions on how to map your previous understanding on how to do things into this new environment, and discovering new ways of doing things along the way.</p>
+<div id="python-generators" class="section level1">
+<h1>Python Generators</h1>
+<p>Having been programming in Python for the best part of the last 4 years, I got used to <a href="https://wiki.python.org/moin/Generators">generators</a> (or, equivalently, generator functions) as a convenient way of structuring certain computations. Generators are akin to interruptible computations which can yield control at specified points in time and then be resumed later as required. Further, whenever a generator yields control, it can return a value.</p>
+<p>This makes them particularly suited to the implementation of iterators whose values are generated from a computation, on-the-fly. Let’s look at a Python example of an infinite enumeration, a generator which yields one integer number after the other until infinity: <a name="python-listing-1"></a></p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode numberSource python numberLines lineAnchors"><code class="sourceCode python"><a class="sourceLine" id="cb1-1" href="#cb1-1" data-line-number="1"><span class="kw">def</span> infinite_enum(start):</a>
+<a class="sourceLine" id="cb1-2" href="#cb1-2" data-line-number="2">  i <span class="op">=</span> start</a>
+<a class="sourceLine" id="cb1-3" href="#cb1-3" data-line-number="3">  <span class="cf">while</span> <span class="va">True</span>:</a>
+<a class="sourceLine" id="cb1-4" href="#cb1-4" data-line-number="4">    <span class="cf">yield</span> i</a>
+<a class="sourceLine" id="cb1-5" href="#cb1-5" data-line-number="5">    i <span class="op">+=</span> <span class="dv">1</span></a></code></pre></div>
+<p>The call to <code>yield</code> in the function above means that every time the generator hits that line, it will yield control to the caller and return the current value for <code>i</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode numberSource python numberLines lineAnchors"><code class="sourceCode python"><a class="sourceLine" id="cb2-1" href="#cb2-1" data-line-number="1">gen <span class="op">=</span> infinite_enum(<span class="dv">5</span>)</a>
+<a class="sourceLine" id="cb2-2" href="#cb2-2" data-line-number="2"><span class="bu">print</span> <span class="st">&#39;The first three elements are:&#39;</span>, <span class="bu">next</span>(gen), <span class="bu">next</span>(gen), <span class="bu">next</span>(gen)</a></code></pre></div>
+<pre><code>## The first three elements are: 5 6 7</code></pre>
+<p>Another way of looking at a computation running as a generator function is as a thread that can voluntarily yield control. A group of such generators could then be coordinated so that when one yields, another one runs, effectively transforming groups of generators into a mechanism for cooperative multitasking. Indeed, the more recent work on <a href="https://docs.python.org/3/library/asyncio-task.html">Python coroutines</a> (part of <a href="https://docs.python.org/3/library/asyncio.html">asyncio</a>) leverages the generator infrastructure very much this way. But enough about Python.</p>
+</div>
+<div id="what-about-ruby" class="section level1">
+<h1>What about Ruby?</h1>
+<p>Well, the Ruby language does not have generators. It does have <a href="https://ruby-doc.org/core-2.5.0/Fiber.html">Fibers</a>, which can accomplish pretty much the same thing, but, more interestingly from a learning perspective, it has <a href="https://ruby-doc.org/core-2.5.0/Continuation.html">native support for continuations</a>.</p>
+<p><a href="https://en.wikipedia.org/wiki/Continuation">Continuations</a> are a powerful control flow construct which allows you to “save” the current state of the computation and then resume from that saved point whenever you like. This is similar to what generators do, except that with a generator you are always resuming a “paused” computation (the generator function) which then resumes running until it either finishes or yields control to the caller again. For instance, in our <a href="#python-listing-1">Python generator</a>, the <a href="#cb1-4">call to yield</a> will suspend the execution of the loop producing a value to the caller. <a href="#cb2-2">Subsequent calls to <code>next</code></a> will resume the computation at exactly that point, and the generator will pick up from where it had stopped.</p>
+<p>That is not what happens with continuations. Continuations will simply resume the computation from where it was, losing the state of the caller and effectively jumping back in time to when the continuation got created, as if the computation that happened after that never existed. The only trace you have that something else has happened when resuming from a continuation are eventual side effects that the preceding computation may have left behind before jumping back.</p>
+<p>This leads to the widely cited <a href="https://groups.google.com/group/perl.perl6.language/msg/b0cfa757f0ce1cfd">“continuation sandwich”</a> example:</p>
+<center style="margin-bottom: 25px">
+<em>Say you’re in the kitchen in front of the refrigerator, thinking about a sandwitch. You take a continuation right there and stick it in your pocket. Then you get some turkey and bread out of the refrigerator and
+make yourself a sandwitch, which is now sitting on the counter. You invoke the continuation in your pocket, and you find yourself standing in front of the refrigerator again, thinking about a sandwitch. But fortunately, there’s a sandwitch on the counter, and all the materials used to make it are gone. So you eat it. :-)</em>
+</center>
+<p>In Ruby, in particular, any changes made to variables which were in scope when the continuation got created will be preserved.</p>
+<p>To get a more concrete idea of what all this means, let us examine the program below:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode numberSource ruby numberLines lineAnchors"><code class="sourceCode ruby"><a class="sourceLine" id="cb4-1" href="#cb4-1" data-line-number="1">require <span class="st">&#39;continuation&#39;</span></a>
+<a class="sourceLine" id="cb4-2" href="#cb4-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb4-3" href="#cb4-3" data-line-number="3"><span class="dt">$cc</span> = <span class="dv">nil</span></a>
+<a class="sourceLine" id="cb4-4" href="#cb4-4" data-line-number="4">results = []</a>
+<a class="sourceLine" id="cb4-5" href="#cb4-5" data-line-number="5"><span class="kw">def</span> fun</a>
+<a class="sourceLine" id="cb4-6" href="#cb4-6" data-line-number="6">  i = <span class="dv">0</span></a>
+<a class="sourceLine" id="cb4-7" href="#cb4-7" data-line-number="7">  callcc { |cc| <span class="dt">$cc</span> = cc }</a>
+<a class="sourceLine" id="cb4-8" href="#cb4-8" data-line-number="8">  i += <span class="dv">1</span></a>
+<a class="sourceLine" id="cb4-9" href="#cb4-9" data-line-number="9">  i</a>
+<a class="sourceLine" id="cb4-10" href="#cb4-10" data-line-number="10"><span class="kw">end</span></a>
+<a class="sourceLine" id="cb4-11" href="#cb4-11" data-line-number="11"></a>
+<a class="sourceLine" id="cb4-12" href="#cb4-12" data-line-number="12">results &lt;&lt; r = fun</a>
+<a class="sourceLine" id="cb4-13" href="#cb4-13" data-line-number="13"><span class="dt">$cc</span>.call <span class="kw">unless</span> r &gt;= <span class="dv">10</span></a>
+<a class="sourceLine" id="cb4-14" href="#cb4-14" data-line-number="14">puts <span class="st">&#39;Result is: &#39;</span> + results.join(<span class="st">&#39;, &#39;</span>)</a></code></pre></div>
+<pre><code>## /usr/lib/x86_64-linux-gnu/ruby/2.5.0/continuation.so: warning: callcc is obsolete; use Fiber instead
+## Result is: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10</code></pre>
+<p>We begin by looking at line <a href="#cb4-12">12</a>, where we call function <code>fun</code>. This function: <em>i)</em> declares a variable named <code>i</code> (line <a href="#cb4-6">6</a>); <em>ii)</em> creates and stores a continuation in global variable <code>$cc</code> with <a href="https://ruby-doc.org/core-2.5.0/Kernel.html#method-i-callcc">callcc</a> (line <a href="#cb4-7">7</a>); increments and returns <code>i</code> (lines <a href="#cb4-8">8-9</a>). We then store the result into local variable <code>r</code>, and push it into the array <code>results</code>. The first call will produce a 1.</p>
+<p>Next, we hit line <a href="#cb4-13">13</a> and call back the continuation with <code>$cc.call</code>. This causes us to jump back to when the continuation got created; i.e., back into line <a href="#cb4-7">7</a>. At that point, there is no way to tell that we got there from a jump and are not visiting line <a href="#cb4-7">7</a> for the first time, except that the value of <code>i</code> will be already 1 (recall that changes made to variables in scope are preserved, even if such changes are made <em>after</em> the continuation was created). <code>i</code> will be then incremented again and the function will return from the original call again in line <a href="#cb4-12">12</a> again, except that it will return a 2 instead of a 1 this time.</p>
+<p>This will happen another 8 times, until finally <code>fun</code> will return 10, causing line <a href="#cb4-13">13</a> to be skipped and the result, an array with numbers 1 to 10 (our sandwich!), to be printed in line <a href="#cb4-14">14</a>.</p>
+<p>I hope that this example illustrates just how confusing a program that uses continuations, which are often <a href="https://en.wikipedia.org/wiki/Goto#Continuations">compared to GOTO statements</a>, can get. The runtime complexity required to support them is also significant, which is the reason why continuations got <a href="https://bugs.ruby-lang.org/issues/10548">deprecated in Ruby</a> about five years ago, but are still hanging in there.</p>
+<p>Regardless, it should also be relatively clear that continuations are a more general concept than generators, and that it should be possible to implement generators on top of them if one so desires. Indeed, this is where we are headed next.</p>
+</div>
+<div id="ruby-generators-with-callcc" class="section level1">
+<h1>Ruby Generators with call/cc</h1>
+<p>The main issue with pure continuations is that they are a kind of one-way construct: the caller of the continuation can warp back to the past where the continuation was created, but it is not possible to do some computation and then warp back to the future with a value. We can achieve that, however, by using pairs of continuations at a time.</p>
+<p>The general idea is that use one continuation A to store the state of the generator’s computation when it yields, and another continuation B to store the state of the caller when it calls <code>next</code>. The generator can then call continuation B and warp back to the caller when it yields, whilst the caller can call continuation A and warp back to the generator when it calls <code>next</code>. This idea is expressed into code below:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode numberSource ruby numberLines lineAnchors"><code class="sourceCode ruby"><a class="sourceLine" id="cb6-1" href="#cb6-1" data-line-number="1">require <span class="st">&#39;continuation&#39;</span></a>
+<a class="sourceLine" id="cb6-2" href="#cb6-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb6-3" href="#cb6-3" data-line-number="3"><span class="co">##</span></a>
+<a class="sourceLine" id="cb6-4" href="#cb6-4" data-line-number="4"><span class="co"># Python-style generators in Ruby using continuations.</span></a>
+<a class="sourceLine" id="cb6-5" href="#cb6-5" data-line-number="5"></a>
+<a class="sourceLine" id="cb6-6" href="#cb6-6" data-line-number="6"><span class="kw">class</span> <span class="dt">RubyGen</span></a>
+<a class="sourceLine" id="cb6-7" href="#cb6-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb6-8" href="#cb6-8" data-line-number="8">  <span class="co">##</span></a>
+<a class="sourceLine" id="cb6-9" href="#cb6-9" data-line-number="9">  <span class="co"># Creates a new generator.</span></a>
+<a class="sourceLine" id="cb6-10" href="#cb6-10" data-line-number="10">  <span class="co">#</span></a>
+<a class="sourceLine" id="cb6-11" href="#cb6-11" data-line-number="11">  <span class="co"># = Example</span></a>
+<a class="sourceLine" id="cb6-12" href="#cb6-12" data-line-number="12">  <span class="co">#</span></a>
+<a class="sourceLine" id="cb6-13" href="#cb6-13" data-line-number="13">  <span class="co">#   gen = RubyGen.new(3, 5) do |gen, x, y|</span></a>
+<a class="sourceLine" id="cb6-14" href="#cb6-14" data-line-number="14">  <span class="co">#     (x..y).each { |i| gen.yield(i) }</span></a>
+<a class="sourceLine" id="cb6-15" href="#cb6-15" data-line-number="15">  <span class="co">#   end</span></a>
+<a class="sourceLine" id="cb6-16" href="#cb6-16" data-line-number="16">  <span class="co">#</span></a>
+<a class="sourceLine" id="cb6-17" href="#cb6-17" data-line-number="17">  <span class="co">#   gen.next # returns 3</span></a>
+<a class="sourceLine" id="cb6-18" href="#cb6-18" data-line-number="18">  <span class="co">#   gen.next # returns 4</span></a>
+<a class="sourceLine" id="cb6-19" href="#cb6-19" data-line-number="19">  <span class="co">#   gen.next # returns 5</span></a>
+<a class="sourceLine" id="cb6-20" href="#cb6-20" data-line-number="20">  <span class="co">#   gen.next # raises StopIteration</span></a>
+<a class="sourceLine" id="cb6-21" href="#cb6-21" data-line-number="21">  <span class="co">#</span></a>
+<a class="sourceLine" id="cb6-22" href="#cb6-22" data-line-number="22">  <span class="kw">def</span> initialize(*pars, &amp;block)</a>
+<a class="sourceLine" id="cb6-23" href="#cb6-23" data-line-number="23">    <span class="ot">@warp_generator</span> = <span class="dv">nil</span></a>
+<a class="sourceLine" id="cb6-24" href="#cb6-24" data-line-number="24">    <span class="ot">@warp_caller</span> = <span class="dv">nil</span></a>
+<a class="sourceLine" id="cb6-25" href="#cb6-25" data-line-number="25">    <span class="ot">@exception</span> = <span class="dv">nil</span></a>
+<a class="sourceLine" id="cb6-26" href="#cb6-26" data-line-number="26">    <span class="ot">@block</span> = -&gt; <span class="kw">do</span></a>
+<a class="sourceLine" id="cb6-27" href="#cb6-27" data-line-number="27">      <span class="kw">begin</span></a>
+<a class="sourceLine" id="cb6-28" href="#cb6-28" data-line-number="28">        block.call(<span class="dv">self</span>, *pars)</a>
+<a class="sourceLine" id="cb6-29" href="#cb6-29" data-line-number="29">        <span class="co"># Not exactly great Ruby etiquette... but we&#39;re just messing around.</span></a>
+<a class="sourceLine" id="cb6-30" href="#cb6-30" data-line-number="30">        <span class="ot">@exception</span> = <span class="dt">StopIteration</span></a>
+<a class="sourceLine" id="cb6-31" href="#cb6-31" data-line-number="31">      <span class="kw">rescue</span> =&gt; e</a>
+<a class="sourceLine" id="cb6-32" href="#cb6-32" data-line-number="32">        <span class="ot">@exception</span> = e</a>
+<a class="sourceLine" id="cb6-33" href="#cb6-33" data-line-number="33">      <span class="kw">ensure</span></a>
+<a class="sourceLine" id="cb6-34" href="#cb6-34" data-line-number="34">        <span class="ot">@next_get</span>.call</a>
+<a class="sourceLine" id="cb6-35" href="#cb6-35" data-line-number="35">      <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-36" href="#cb6-36" data-line-number="36">    <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-37" href="#cb6-37" data-line-number="37">  <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-38" href="#cb6-38" data-line-number="38"></a>
+<a class="sourceLine" id="cb6-39" href="#cb6-39" data-line-number="39">  <span class="kw">def</span> <span class="kw">yield</span>(value)</a>
+<a class="sourceLine" id="cb6-40" href="#cb6-40" data-line-number="40">    <span class="ot">@value</span> = value</a>
+<a class="sourceLine" id="cb6-41" href="#cb6-41" data-line-number="41">    callcc <span class="kw">do</span> |cc|</a>
+<a class="sourceLine" id="cb6-42" href="#cb6-42" data-line-number="42">      <span class="co"># Saves generator state so we can &quot;warp into&quot; </span></a>
+<a class="sourceLine" id="cb6-43" href="#cb6-43" data-line-number="43">      <span class="co"># the generator on the next call to `next`.</span></a>
+<a class="sourceLine" id="cb6-44" href="#cb6-44" data-line-number="44">      <span class="ot">@warp_generator</span> = cc</a>
+<a class="sourceLine" id="cb6-45" href="#cb6-45" data-line-number="45">      <span class="co"># Warps back to caller.</span></a>
+<a class="sourceLine" id="cb6-46" href="#cb6-46" data-line-number="46">      <span class="ot">@warp_caller</span>.call(value)</a>
+<a class="sourceLine" id="cb6-47" href="#cb6-47" data-line-number="47">    <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-48" href="#cb6-48" data-line-number="48">  <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-49" href="#cb6-49" data-line-number="49"></a>
+<a class="sourceLine" id="cb6-50" href="#cb6-50" data-line-number="50">  <span class="kw">def</span> <span class="kw">next</span></a>
+<a class="sourceLine" id="cb6-51" href="#cb6-51" data-line-number="51">    value = callcc <span class="kw">do</span> |cc|</a>
+<a class="sourceLine" id="cb6-52" href="#cb6-52" data-line-number="52">      <span class="co"># Saves caller state so we can &quot;warp back&quot; to the caller</span></a>
+<a class="sourceLine" id="cb6-53" href="#cb6-53" data-line-number="53">      <span class="co"># when the generator yields.</span></a>
+<a class="sourceLine" id="cb6-54" href="#cb6-54" data-line-number="54">      <span class="ot">@warp_caller</span> = cc</a>
+<a class="sourceLine" id="cb6-55" href="#cb6-55" data-line-number="55">      <span class="co"># Warps into the generator.</span></a>
+<a class="sourceLine" id="cb6-56" href="#cb6-56" data-line-number="56">      <span class="ot">@warp_generator</span>.nil? ? <span class="ot">@block</span>.call : <span class="ot">@warp_generator</span>.call</a>
+<a class="sourceLine" id="cb6-57" href="#cb6-57" data-line-number="57">    <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-58" href="#cb6-58" data-line-number="58">    raise <span class="ot">@exception</span> <span class="kw">unless</span> <span class="ot">@exception</span>.nil?</a>
+<a class="sourceLine" id="cb6-59" href="#cb6-59" data-line-number="59">    value</a>
+<a class="sourceLine" id="cb6-60" href="#cb6-60" data-line-number="60">  <span class="kw">end</span></a>
+<a class="sourceLine" id="cb6-61" href="#cb6-61" data-line-number="61"></a>
+<a class="sourceLine" id="cb6-62" href="#cb6-62" data-line-number="62"><span class="kw">end</span></a></code></pre></div>
+<pre><code>## /usr/lib/x86_64-linux-gnu/ruby/2.5.0/continuation.so: warning: callcc is obsolete; use Fiber instead</code></pre>
+<p>To implement the same generator as we had in our <a href="#python-listing-1">Python example</a>, we would then write:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode numberSource ruby numberLines lineAnchors"><code class="sourceCode ruby"><a class="sourceLine" id="cb8-1" href="#cb8-1" data-line-number="1">gen = <span class="dt">RubyGen</span>.new(<span class="dv">5</span>) <span class="kw">do</span> |context, start|</a>
+<a class="sourceLine" id="cb8-2" href="#cb8-2" data-line-number="2">  i = start</a>
+<a class="sourceLine" id="cb8-3" href="#cb8-3" data-line-number="3">  loop <span class="kw">do</span></a>
+<a class="sourceLine" id="cb8-4" href="#cb8-4" data-line-number="4">    context.yield(i)</a>
+<a class="sourceLine" id="cb8-5" href="#cb8-5" data-line-number="5">    i += <span class="dv">1</span></a>
+<a class="sourceLine" id="cb8-6" href="#cb8-6" data-line-number="6">  <span class="kw">end</span></a>
+<a class="sourceLine" id="cb8-7" href="#cb8-7" data-line-number="7"><span class="kw">end</span></a></code></pre></div>
+<p>and finally, running:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode numberSource ruby numberLines lineAnchors"><code class="sourceCode ruby"><a class="sourceLine" id="cb9-1" href="#cb9-1" data-line-number="1">print <span class="st">&#39;The first three elements are: &#39;</span>, [gen.next, gen.next, gen.next].join(<span class="ch">&#39; &#39;</span>)</a></code></pre></div>
+<p>will print <code>The first three elements are: 5 6 7</code>, just like in our Python example.</p>
+</div>

@@ -16,7 +16,6 @@ bibliography: [bibliography.bib]
 link-citations: true
 ---
 
-
 ```{r include=FALSE}
 library(tidyverse)
 library(gridExtra)
