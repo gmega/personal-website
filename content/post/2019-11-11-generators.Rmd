@@ -43,11 +43,19 @@ Another way of looking at a computation running as a generator function is as a 
 
 # What about Ruby?
 
-Well, the Ruby language does not have generators. It does have [Fibers](https://ruby-doc.org/core-2.5.0/Fiber.html), which can accomplish pretty much the same thing, but, more interestingly from a learning perspective, it has [native support for continuations](https://ruby-doc.org/core-2.5.0/Continuation.html). 
+Well, the Ruby language does not have generators. It does have [Fibers](https://ruby-doc.org/core-2.5.0/Fiber.html), which can accomplish pretty much the same thing^[[Fibers](https://ruby-doc.org/core-2.5.0/Fiber.html) can actually do more. Like the continuation-based generators we develop here, they snapshot the entire call stack. This means that if you call a second function from your generator, and then that fuction calls a third function, and then this third function calls `yield`, things are still going to work: the call to `yield` will return control to the caller, and the next call to `next` will resume from inside of the third function call, with the call stack just as it was. Not so with Python generators, which will not work across nested calls.], but, more interestingly from a learning perspective, it has [native support for continuations](https://ruby-doc.org/core-2.5.0/Continuation.html). 
 
-[Continuations](https://en.wikipedia.org/wiki/Continuation) are a powerful control flow construct which allows you to "save" the current state of the computation and then resume from that saved point whenever you like. This is similar to what generators do, except that with a generator you are always resuming a "paused" computation (the generator function) which then resumes running until it either finishes or yields control to the caller again. For instance, in our [Python generator](#python-listing-1), the [call to yield](#cb1-4) will suspend the execution of the generator function loop producing a value to the caller. Similarly, [calling `next`](#cb2-2) will suspend the caller and resume the generator until it yields again.
+[Continuations](https://en.wikipedia.org/wiki/Continuation) are a powerful control flow construct which allows you to "save" the current state of a computation and then resume it from that saved state whenever you like. This is similar to what generators do, except that with a generator you have a structured relationship between two computations which progress taking turns, as depicted in Fig. \@ref(fig:generator): on one end we have the _caller_ computation, which transfers control to the generator whenever it calls `next` and, on the other, we have the _generator_ computation, which transfers control back to the caller whenever it calls `yield`.
 
-That is not what happens with continuations. When called, a continuation will simply resume the computation from where it was created, losing the state of the caller as if the computation that happened after the continuation never existed. The only trace you will have that something else has happened when resuming from a continuation are eventual side effects that the preceding computation may have left behind before jumping back.
+```{r generator, out.width='400px', fig.align='center', fig.cap='The two implicit alternating computations in generators.', echo=FALSE}
+knitr::include_graphics('/img/posts/2019-11-11-generators/generator.png')
+```
+
+That is not what happens with continuations. Continuations will simply transfer control from the caller to an arbitrary saved state, forgetting that the caller ever existed. In particular, it is perfectly possible for a computation to transfer control back to an earlier point of itself (Fig. \@ref(fig:continuations)). In such situations, the only trace you will have that something else has happened when resuming said saved state are the eventual side effects that the preceding computation may have left behind before jumping back.
+
+```{r continuations, out.width='400px', fig.align='center', fig.cap='Computation calling continuation into a previous point in time.', echo=FALSE}
+knitr::include_graphics('/img/posts/2019-11-11-generators/continuation.png')
+```
 
 This leads to the widely cited ["continuation sandwich"](https://groups.google.com/group/perl.perl6.language/msg/b0cfa757f0ce1cfd) example:
 
@@ -55,7 +63,6 @@ This leads to the widely cited ["continuation sandwich"](https://groups.google.c
 _Say you're in the kitchen in front of the refrigerator, thinking about a sandwitch [sic].  You take a continuation right there and stick it in your pocket.  Then you get some turkey and bread out of the refrigerator and
 make yourself a sandwitch, which is now sitting on the counter.  You invoke the continuation in your pocket, and you find yourself standing in front of the refrigerator again, thinking about a sandwitch.  But fortunately, there's a sandwitch on the counter, and all the materials used to make it are gone.  So you eat it. :-)_
 </center>
-
 
 In Ruby, in particular, any changes made to variables which were in scope when the continuation got created will be preserved. 
 

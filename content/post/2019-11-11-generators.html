@@ -97,9 +97,21 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 <div id="what-about-ruby" class="section level1">
 <h1>What about Ruby?</h1>
-<p>Well, the Ruby language does not have generators. It does have <a href="https://ruby-doc.org/core-2.5.0/Fiber.html">Fibers</a>, which can accomplish pretty much the same thing, but, more interestingly from a learning perspective, it has <a href="https://ruby-doc.org/core-2.5.0/Continuation.html">native support for continuations</a>.</p>
-<p><a href="https://en.wikipedia.org/wiki/Continuation">Continuations</a> are a powerful control flow construct which allows you to “save” the current state of the computation and then resume from that saved point whenever you like. This is similar to what generators do, except that with a generator you are always resuming a “paused” computation (the generator function) which then resumes running until it either finishes or yields control to the caller again. For instance, in our <a href="#python-listing-1">Python generator</a>, the <a href="#cb1-4">call to yield</a> will suspend the execution of the generator function loop producing a value to the caller. Similarly, <a href="#cb2-2">calling <code>next</code></a> will suspend the caller and resume the generator until it yields again.</p>
-<p>That is not what happens with continuations. When called, a continuation will simply resume the computation from where it was created, losing the state of the caller as if the computation that happened after the continuation never existed. The only trace you will have that something else has happened when resuming from a continuation are eventual side effects that the preceding computation may have left behind before jumping back.</p>
+<p>Well, the Ruby language does not have generators. It does have <a href="https://ruby-doc.org/core-2.5.0/Fiber.html">Fibers</a>, which can accomplish pretty much the same thing<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, but, more interestingly from a learning perspective, it has <a href="https://ruby-doc.org/core-2.5.0/Continuation.html">native support for continuations</a>.</p>
+<p><a href="https://en.wikipedia.org/wiki/Continuation">Continuations</a> are a powerful control flow construct which allows you to “save” the current state of a computation and then resume it from that saved state whenever you like. This is similar to what generators do, except that with a generator you have a structured relationship between two computations which progress taking turns, as depicted in Fig. <a href="#fig:generator">1</a>: on one end we have the <em>caller</em> computation, which transfers control to the generator whenever it calls <code>next</code> and, on the other, we have the <em>generator</em> computation, which transfers control back to the caller whenever it calls <code>yield</code>.</p>
+<div class="figure" style="text-align: center"><span id="fig:generator"></span>
+<img src="/img/posts/2019-11-11-generators/generator.png" alt="The two implicit alternating computations in generators." width="400px" />
+<p class="caption">
+Figure 1: The two implicit alternating computations in generators.
+</p>
+</div>
+<p>That is not what happens with continuations. Continuations will simply transfer control from the caller to an arbitrary saved state, forgetting that the caller ever existed. In particular, it is perfectly possible for a computation to transfer control back to an earlier point of itself (Fig. <a href="#fig:continuations">2</a>). In such situations, the only trace you will have that something else has happened when resuming said saved state are the eventual side effects that the preceding computation may have left behind before jumping back.</p>
+<div class="figure" style="text-align: center"><span id="fig:continuations"></span>
+<img src="/img/posts/2019-11-11-generators/continuation.png" alt="Computation calling continuation into a previous point in time." width="400px" />
+<p class="caption">
+Figure 2: Computation calling continuation into a previous point in time.
+</p>
+</div>
 <p>This leads to the widely cited <a href="https://groups.google.com/group/perl.perl6.language/msg/b0cfa757f0ce1cfd">“continuation sandwich”</a> example:</p>
 <center style="margin-bottom: 25px">
 <em>Say you’re in the kitchen in front of the refrigerator, thinking about a sandwitch [sic]. You take a continuation right there and stick it in your pocket. Then you get some turkey and bread out of the refrigerator and
@@ -211,4 +223,10 @@ make yourself a sandwitch, which is now sitting on the counter. You invoke the c
 <p>and finally, running:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode numberSource ruby numberLines lineAnchors"><code class="sourceCode ruby"><a class="sourceLine" id="cb9-1" href="#cb9-1" data-line-number="1">print <span class="st">&#39;The first three elements are: &#39;</span>, [gen.next, gen.next, gen.next].join(<span class="ch">&#39; &#39;</span>)</a></code></pre></div>
 <p>will print <code>The first three elements are: 5 6 7</code>, just like in our Python example.</p>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p><a href="https://ruby-doc.org/core-2.5.0/Fiber.html">Fibers</a> can actually do more. Like the continuation-based generators we develop here, they snapshot the entire call stack. This means that if you call a second function from your generator, and then that fuction calls a third function, and then this third function calls <code>yield</code>, things are still going to work: the call to <code>yield</code> will return control to the caller, and the next call to <code>next</code> will resume from inside of the third function call, with the call stack just as it was. Not so with Python generators, which will not work across nested calls.<a href="#fnref1" class="footnote-back">↩</a></p></li>
+</ol>
 </div>
