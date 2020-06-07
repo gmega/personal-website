@@ -18,17 +18,19 @@ link-citations: true
 
 [Distributed consensus](https://en.wikipedia.org/wiki/Consensus_(computer_science)) - i.e., the problem of getting a set of processes to agree on a certain action or value over a network - is a fundamental problem of distributed computing. It arises in settings that range from group membership (i.e., tracking the set of servers in a server group that are currently online) to distributed database commits. And yet, despite its pervasiveness, it is anything but simple to solve.
 
-Today, I will revisit an impossibility result which states that if your network is allowed to lose messages then the problem cannot be solved. This would appear to be a daunting result at first but, as I explain at the end of this post, the fact that you cannot provide hard guarantees does not mean you cannot do useful work. Still, the first time I saw this result I was surprised to see that something this basic already fails to be feasible with hard guarantees. 
+Today, I will revisit an impossibility result which states that if your network is allowed to lose messages then the problem cannot be solved. I recall how daunting it felt when I saw this result for the first time but, as I explain at the end of this post, the fact that you cannot provide hard guarantees does not mean you cannot do useful work.
 
 ## Synchronous Systems
 
-To make matters simpler, we will discuss this result in the context of _synchronous_ distributed systems [@lynch-96], which we define next. A _synchronous distributed system_ is a  simplified model in which we assume that processes execute in lock-step rounds. At each round, each process:
+To make matters simpler, we will discuss this result in the context of _synchronous distributed systems_ [@lynch-96]. A synchronous distributed system is a simplified model in which we assume that processes execute in lock-step rounds. At each round, each process:
  
   1. generates outgoing messages to its neighbors;
   2. processes incoming messages from its neighbors;
   3. based on messages received, performs internal computations and updates its state.
   
-This is easier to reason about than "regular" distributed systems because we do not have to worry about messages taking too long to be delivered, being delivered out of order, or about processes that are slow or lag behind others: by the beginning of the next round, all messages will have been delivered, and all computation will have been completed. An example of a synchronous execution of two processes is shown in Fig. \@ref(fig:sync-exec).
+This is easier to reason about than "regular" distributed systems because we do not have to worry about messages taking too long to be delivered, being delivered out of order, or about processes that are slow or lag behind others: by the beginning of the next round, all messages will have been delivered, and all computation will have been completed. There is no bound on the size of messages or the amount of computation done that can be done at each round. 
+
+An example of a synchronous execution of two processes is shown in Fig. \@ref(fig:sync-exec).
 
 ```{r sync-exec, out.width='250px', fig.align='center', fig.cap='Two processes exchanging messages in a synchronous distributed system.', echo=FALSE}
 knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/sync-exec.png', error = FALSE)
