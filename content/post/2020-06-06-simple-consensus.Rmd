@@ -1,0 +1,78 @@
+---
+title: "Distributed Consensus with Faulty Channels"
+author: "Giuliano Mega"
+date: 2020-06-06T00:00:00
+categories: ["distributed systems"]
+tags: ["distributed consensus", "synchronous systems", "two-army problem"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
+    highlight: pygments
+
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+[Distributed consensus](https://en.wikipedia.org/wiki/Consensus_(computer_science)) - i.e., the problem of getting a set of processes to agree on a certain action or value over a network - is a fundamental problem of distributed computing. It arises in settings that range from group membership (i.e., tracking the set of servers in a server group that are currently online) to distributed database commits. And yet, despite its pervasiveness, it is anything but simple to solve.
+
+Today, I will revisit an impossibility result which states that if your network is allowed to lose messages then the problem cannot be solved. This would appear to be a daunting result at first but, as I explain at the end of this post, the fact that you cannot provide hard guarantees does not mean you cannot do useful work. Still, the first time I saw this result I was surprised to see that something this basic already fails to be feasible with hard guarantees. 
+
+## Synchronous Systems
+
+To make matters simpler, we will discuss this result in the context of _synchronous_ distributed systems [@lynch-96], which we define next. A _synchronous distributed system_ is a  simplified model in which we assume that processes execute in lock-step rounds. At each round, each process:
+ 
+  1. generates outgoing messages to its neighbors;
+  2. processes incoming messages from its neighbors;
+  3. based on messages received, performs internal computations and updates its state.
+  
+This is easier to reason about than "regular" distributed systems because we do not have to worry about messages taking too long to be delivered, being delivered out of order, or about processes that are slow or lag behind others: by the beginning of the next round, all messages will have been delivered, and all computation will have been completed. An example of a synchronous execution of two processes is shown in Fig. \@ref(fig:sync-exec).
+
+```{r sync-exec, out.width='250px', fig.align='center', fig.cap='Two processes exchanging messages in a synchronous distributed system.', echo=FALSE}
+knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/sync-exec.png', error = FALSE)
+```
+
+## Consensus in Synchronous Systems
+
+Now we can define what "solving" consensus means. Let $p_1$ and $p_2$ be two processes connected by a single, unreliable network link (Fig. \@ref(fig:two-processes)). Each process starts by picking a value $v$ from $\{0,1\}$ (which could mean, for instance, "commit" or "abort"^[I am simplifying things: distributed commit also cares about faulty processes and what their decision values are. We are not even considering that processes can fail.]). Then, at the end of our consensus algorithm, we want both processes to have _decided_ on either $1$ or $0$. For consensus to be _solved_, such decision must respect three properties:
+
+```{r two-processes, out.width='250px', fig.align='center', fig.cap='Two processes connected by an unreliable network link.', echo=FALSE}
+knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/system.png', error = FALSE)
+```
+
+1. **Agreement.** No two processes decide on different values.
+2. **Validity.** If all processes start with value $v$, then all processes must decide on $v$.
+3. **Termination.** Eventually, all processes decide on some value.
+
+Condition (2) helps us exclude trivial and uninteresting protocols such as "always decide $0$". With those definitions in place, we can state our theorem:
+
+**Theorem.** _If the link connecting two processes $p_1$ and $p_2$ is unreliable, then no algorithm can solve consensus for them._
+
+**Proof.** The proof will be by contradiction. Suppose there were some algorithm _A_ which did solve consensus in our case. For the sake of argument let us assume, without loss of generality, that $p_1$ and $p_2$ have initially chosen $\{1\}$ as their starting value. 
+
+We make the further assumption that processes send a message to each other at every round (recall our distributed system is synchronous). This is without loss of generality: you can imagine that processes could send empty messages if they wanted to not send anything. 
+
+If $A$ solves consensus, it means that it eventually terminates, so that there is a round $r \in \mathbb{N}$ such that, by that round, both processes have to have decided. Again, since both processes started with $\{1\}$ and $A$ solves consensus, then by the validity property both must have, by round $r$, decided $\{1\}$. This is shown in Fig. \@ref(fig:exec-alpha) as execution $\alpha$.
+
+```{r exec-alpha, out.width="340px", fig.align='center', fig.cap='Executions $\\alpha$ and $\\alpha^{\\prime}$, with decision by round $r$', echo=FALSE}
+knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/exec-alpha.png', error = FALSE)
+```
+
+Now comes the interesting part. If the channel is unreliable, this means that the last message in $\alpha$ may have failed to be delivered, leading to  alternative execution $\alpha^{\prime}$, also shown in Fig. \@ref(fig:exec-alpha). Now note that since $p_1$ receives the exact same set of messages in $\alpha^{\prime}$ as it did in $\alpha$, $\alpha^{\prime}$ is indistinguishable from $\alpha$ from the point of view of $p_1$. This means that if $p_1$ decides $\{1\}$ in $\alpha$, it must also decide $\{1\}$ in $\alpha_1$. 
+As for $p_2$, the execution is different, so it has two options: it either decides $\{0\}$ because of the missing message, or it decides $\{1\}$. If it decides $\{0\}$, then the agreement property is violated and $A$ does not solve consensus. It must be, therefore, that $p_2$ decides $\{1\}$. 
+
+From here, we can apply this procedure recursively until we peel off every single message exchange in $\alpha$, getting to execution $\alpha_{11}$ (Fig. \@ref(fig:alpha-empty)) where both processes still have to decide $\{1\}$, even though no messages have been delivered. We can now march towards the contradiction.
+
+```{r alpha-empty, out.width="500px", fig.align='center', fig.cap='Executions $\\alpha$ and $\\alpha^{\\prime}$, with decision by round $r$', echo=FALSE}
+knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/contradiction.png', error = FALSE)
+```
+
+
+By looking at execution $\alpha_{10}$, in which $p_1$ starts with $\{1\}$ and $p_2$ starts with $\{0\}$, we see that $\alpha_{10}$ is indistinguishable, from the point of view of $p_1$, from $\alpha_{11}$. It must be, therefore, that $p_1$ decides $\{1\}$ in $\alpha_{11}$ and, by the agreement property, that $p_2$ also decides $\{1\}$ in $\alpha_{10}$.
+
+But now look at execution $\alpha_{00}$, in which both $p_1$ and $p_2$ start with $\{0\}$. Clearly, $\alpha_{00}$ is indistinguishable from $\alpha_{10}$ from the point of view of $p_2$, so it must decide $\{1\}$. But this violates validity, which states that if all processes start with $v$, then $v$ is the only possible decision value: a contradiction. $\blacksquare$
+
+This reveals a deeply disconcerting property of distributed systems: if your network is unreliable, you cannot really get much work done. Fortunately for us, however, reliability issues tend to happen sporadically: you can usually overcome a transiently faulty channel by retrying a transmission, and even more serious issues, such as network partitions, tend to be transient in time. Those still do, however, complicate distributed algorithm design to a significant degree. 
+

@@ -48,7 +48,7 @@ output:
 <p>Suppose we had the following functions:</p>
 <ul>
 <li><span class="math inline">\(f_1(x,y) = 3 x^{2} + 5 x y + 4 y^{2}\)</span></li>
-<li><span class="math inline">\(f_2(x) = \sin{\left (x \right )}\)</span></li>
+<li><span class="math inline">\(f_2(x) = \sin{\left(x \right)}\)</span></li>
 <li><span class="math inline">\(f_3(x) = \sqrt{x} + e^{x}\)</span></li>
 </ul>
 <p>and that we wanted to compute the derivative of the following composite function:</p>
@@ -58,13 +58,13 @@ f(x) = f_1(f_2(x), f_3(x))
 <p>There are a number of ways one could go about doing that. One could, for instance, compute the derivative algebraically and arrive at a closed-form expression by, say, first replacing <span class="math inline">\(x\)</span> and <span class="math inline">\(y\)</span> by <span class="math inline">\(f_2(x)\)</span> and <span class="math inline">\(f_3(x)\)</span> in <span class="math inline">\(f\)</span>:</p>
 <p><span class="math display">\[
 \begin{equation}
-  f(x) = 4 \left(\sqrt{x} + e^{x}\right)^{2} + 5 \left(\sqrt{x} + e^{x}\right) \sin{\left (x \right )} + 3 \sin^{2}{\left (x \right )}
+  f(x) = 4 \left(\sqrt{x} + e^{x}\right)^{2} + 5 \left(\sqrt{x} + e^{x}\right) \sin{\left(x \right)} + 3 \sin^{2}{\left(x \right)}
 \end{equation}
 \]</span></p>
 <p>and then taking the derivative with respect to <span class="math inline">\(x\)</span>:</p>
 <p><span class="math display" id="eq:symbolic">\[
 \begin{equation}
-  f^\prime(x) = 4 \left(\sqrt{x} + e^{x}\right) \left(2 e^{x} + \frac{1}{\sqrt{x}}\right) + 5 \left(\sqrt{x} + e^{x}\right) \cos{\left (x \right )} + 5 \left(e^{x} + \frac{1}{2 \sqrt{x}}\right) \sin{\left (x \right )} + 6 \sin{\left (x \right )} \cos{\left (x \right )}
+  f^\prime(x) = 4 \left(\sqrt{x} + e^{x}\right) \left(2 e^{x} + \frac{1}{\sqrt{x}}\right) + \left(5 \sqrt{x} + 5 e^{x}\right) \cos{\left(x \right)} + \left(5 e^{x} + \frac{5}{2 \sqrt{x}}\right) \sin{\left(x \right)} + 6 \sin{\left(x \right)} \cos{\left(x \right)}
   \tag{1.1}
 \end{equation}
 \]</span></p>
@@ -80,8 +80,8 @@ f(x) = f_1(f_2(x), f_3(x))
 <p>Eq. <a href="#eq:chainrule-1">(1.2)</a> already provides a hint of how this could work. We can break down the constituent parts of <span class="math inline">\(f\)</span> into set of smaller blocks which are easier to derive symbolically:</p>
 <p><span class="math display">\[
 \begin{align}
-  \frac{d}{dt} f_1(f_2(t), f_3(t)) &amp;= 6 \operatorname{f_{2}}{\left (t \right )} \frac{d}{d t} \operatorname{f_{2}}{\left (t \right )} + 5 \operatorname{f_{2}}{\left (t \right )} \frac{d}{d t} \operatorname{f_{3}}{\left (t \right )} + 5 \operatorname{f_{3}}{\left (t \right )} \frac{d}{d t} \operatorname{f_{2}}{\left (t \right )} + 8 \operatorname{f_{3}}{\left (t \right )} \frac{d}{d t} \operatorname{f_{3}}{\left (t \right )}\\
-  f_2^\prime(x) &amp;= \cos{\left (x \right )} \\
+  \frac{d}{dt} f_1(f_2(t), f_3(t)) &amp;= 6 \operatorname{f_{2}}{\left(t \right)} \frac{d}{d t} \operatorname{f_{2}}{\left(t \right)} + 5 \operatorname{f_{2}}{\left(t \right)} \frac{d}{d t} \operatorname{f_{3}}{\left(t \right)} + 5 \operatorname{f_{3}}{\left(t \right)} \frac{d}{d t} \operatorname{f_{2}}{\left(t \right)} + 8 \operatorname{f_{3}}{\left(t \right)} \frac{d}{d t} \operatorname{f_{3}}{\left(t \right)}\\
+  f_2^\prime(x) &amp;= \cos{\left(x \right)} \\
   f_3^\prime(x) &amp;= e^{x} + \frac{1}{2 \sqrt{x}}
 \end{align}
 \]</span></p>
@@ -121,7 +121,8 @@ a_3 &amp;= f_3(f_2(f_1(a))) = f_3(a_2)\\
 a_m &amp;= f_m(f_{m-1}(\,\cdots\, f_2(f_1(a)) \,\cdots\,)) = f_m(a_{m-1})
 \end{align}
 \]</span></p>
-<p>Let’s call <span class="math inline">\(f(a) = f_m(f_{m-1}(\,\cdots\, f_2(f_1(a)) \,\cdots\,))\)</span>. The good thing about <span class="math inline">\(f\)</span> is that it is relatively easy to understand how <span class="math inline">\(f^\prime\)</span> looks like, even though it is a deep composite function. Indeed, by applying the (simple) chain rule repeatedly, we can expand the final derivative for this function into: <span class="math display">\[
+<p>Let’s call <span class="math inline">\(f(a) = f_m(f_{m-1}(\,\cdots\, f_2(f_1(a)) \,\cdots\,))\)</span>. The good thing about <span class="math inline">\(f\)</span> is that it is relatively easy to understand how <span class="math inline">\(f^\prime\)</span> looks like, even though it is a deep composite function. Indeed, by applying the (simple) chain rule repeatedly, we can expand the final derivative for this function into:
+<span class="math display">\[
 f^\prime(a) = f_m^\prime(a_{m-1})  f_{m-1}^\prime(a_{m-2}) \cdots f_2^\prime(a_2)f_1^\prime(a)
 \]</span></p>
 <p>Now suppose we wanted to compute <span class="math inline">\(f^{\prime}(a_0)\)</span> for some real-valued <span class="math inline">\(a_0\)</span>. Let us pause and think for a moment about what we already know: we know how to compute the derivatives <span class="math inline">\(f^{\prime}_{i}\)</span> for each of the composing functions (since those are not composite functions themselves, we assume that their derivative is easy to compute and does not involve the chain rule), and we know the value of <span class="math inline">\(a_0\)</span>. But how do we proceed?</p>
@@ -150,7 +151,8 @@ f(a) = f_m(f_{1}(a), f_2(a))
 <div id="sec:unifying-chain-rule" class="section level2">
 <h2><span class="header-section-number">2.2</span> Unifying the Rules</h2>
 <p>So far, we have been dealing with composite functions on one input variable; i.e., our final function <span class="math inline">\(f(a)\)</span> has always been a function of one single variable <span class="math inline">\(a\)</span>.</p>
-<p>Suppose now that we had a two-variable function; i.e.: <span class="math display">\[
+<p>Suppose now that we had a two-variable function; i.e.:
+<span class="math display">\[
 f(x_1,x_2) = f_m(f_{1}(x_1, x_2)), f_2(x_1))
 \]</span></p>
 <p>And we wanted to determine the partial derivatives of <span class="math inline">\(f\)</span> with respect to <span class="math inline">\(x_1\)</span> and <span class="math inline">\(x_2\)</span>. Partial derivatives are essentially equivalent to taking a function and interpreting all but one of its variables - the one you are taking the partial derivative with respect to - as constants. This, by construction, means that any partial derivative we take reduces to a single-variable case; i.e., there is nothing special about multiple variables.</p>
@@ -163,7 +165,8 @@ f(x_1,x_2) = f_m(f_{1}(x_1, x_2)), f_2(x_1))
   f_{m\prime}(f_2(x_1,\cdot), f_2(x_1)\times f_{2}^\prime(x_1)
   \tag{2.2}
 \end{equation}
-\]</span> and the partial derivative with respect to <span class="math inline">\(x_2\)</span>, which reduces to the simple chain rule:</p>
+\]</span>
+and the partial derivative with respect to <span class="math inline">\(x_2\)</span>, which reduces to the simple chain rule:</p>
 <p><span class="math display" id="eq:simple-chainrule-partial">\[
 \begin{equation}
   f_\prime(x_1,x_2) = f_{m^\prime}(f_1(\cdot,x_2), f_2(\cdot)) \times f_{1^\prime}(\cdot, x_2)
@@ -205,9 +208,9 @@ f(x_1,x_2) = f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1))
 \]</span></p>
 <p>But this time let us assign concrete functions to them:</p>
 <ul>
-<li><span class="math inline">\(f_1(x, y) = \sin{\left (\pi x \right )} + \cos{\left (\pi y \right )}\)</span></li>
+<li><span class="math inline">\(f_1(x, y) = \sin{\left(\pi x \right)} + \cos{\left(\pi y \right)}\)</span></li>
 <li><span class="math inline">\(f_2(x, y) = x^{y}\)</span></li>
-<li><span class="math inline">\(f_3(x) = \log{\left (x \right )}\)</span></li>
+<li><span class="math inline">\(f_3(x) = \log{\left(x \right)}\)</span></li>
 </ul>
 <p>Now, supposing we wanted to compute <span class="math inline">\(\frac{\partial f}{\partial x_1}\)</span>, we would get, by the (multivariable) chain rule:</p>
 <p><span class="math display">\[
@@ -246,10 +249,10 @@ Figure 2.1: Expression graph for <span class="math inline">\(f\)</span>.
 <p>Let’s show that this is indeed true by using this method to compute the partial derivatives of <span class="math inline">\(f\)</span> at the point <span class="math inline">\((2,3)\)</span>, and then comparing the results with the full symbolic derivative obtained by expanding Eq. <a href="#eq:partial-derivative">(2.5)</a>.</p>
 <p>We first need our building blocks; i.e., the partial derivatives of each of the composing functions:</p>
 <p><span class="math display">\[
-\frac{\partial}{\partial x} f_1(x, y) = \pi \cos{\left (\pi x \right )}\\
-\frac{\partial}{\partial y} f_1(x, y) = - \pi \sin{\left (\pi y \right )}\\
+\frac{\partial}{\partial x} f_1(x, y) = \pi \cos{\left(\pi x \right)}\\
+\frac{\partial}{\partial y} f_1(x, y) = - \pi \sin{\left(\pi y \right)}\\
 \frac{\partial}{\partial x} f_2(x, y) = \frac{x^{y} y}{x}\\
-\frac{\partial}{\partial y} f_2(x, y) = x^{y} \log{\left (x \right )}\\
+\frac{\partial}{\partial y} f_2(x, y) = x^{y} \log{\left(x \right)}\\
 \frac{\partial}{\partial x} f_3(x) = \frac{1}{x}
 \]</span></p>
 <p>And we also need the results of the forward propagation step:</p>
@@ -274,7 +277,7 @@ Figure 2.1: Expression graph for <span class="math inline">\(f\)</span>.
 <pre class="python"><code>x_1, x_2 = symbols(&#39;x_1 x_2&#39;)
 df_x1 = f_1(f_2(x_1, f_2(x_2, x_1)), f_3(x_1)).diff(x_1)
 print(&#39;$$ \\frac{\\partial}{\\partial x_1} f(x_1, x_2) = &#39; + latex(df_x1) + &#39;$$&#39;)</code></pre>
-<p><span class="math display">\[ \frac{\partial}{\partial x_1} f(x_1, x_2) = \pi x_{1}^{x_{2}^{x_{1}}} \left(x_{2}^{x_{1}} \log{\left (x_{1} \right )} \log{\left (x_{2} \right )} + \frac{x_{2}^{x_{1}}}{x_{1}}\right) \cos{\left (\pi x_{1}^{x_{2}^{x_{1}}} \right )} - \frac{\pi}{x_{1}} \sin{\left (\pi \log{\left (x_{1} \right )} \right )}\]</span></p>
+<p><span class="math display">\[ \frac{\partial}{\partial x_1} f(x_1, x_2) = \pi x_{1}^{x_{2}^{x_{1}}} \left(x_{2}^{x_{1}} \log{\left(x_{1} \right)} \log{\left(x_{2} \right)} + \frac{x_{2}^{x_{1}}}{x_{1}}\right) \cos{\left(\pi x_{1}^{x_{2}^{x_{1}}} \right)} - \frac{\pi \sin{\left(\pi \log{\left(x_{1} \right)} \right)}}{x_{1}}\]</span></p>
 <p>Which, computing for <span class="math inline">\((2, 3)\)</span>, yields:</p>
 <pre class="python"><code>print(df_x1.subs({&#39;x_1&#39;: 2, &#39;x_2&#39;: 3}).evalf())</code></pre>
 <pre><code>## 18260.7627311899</code></pre>
@@ -365,6 +368,7 @@ import inspect</code></pre>
             key: Value(value, key) if isinstance(value, numbers.Number) else value
             for key, value in kwargs.items()
         }
+
   
 class AppliedFunction(object):
     def __init__(self, ftype, value, children: Mapping[str, &#39;AppliedFunction&#39;]):
@@ -426,8 +430,9 @@ f_3 = Function(lambda x: sy.ln(x))
   
 f = f_1(f_2(x1, f_2(x2, x1)), f_3(x1))
 f.compute_gradient()
-  
-print(&#39;Gradients are: $$\\begin{align}\\frac{\\partial}{\\partial x_1} f(2,3) &amp;= %f\\\\&#39; 
+  </code></pre>
+<p>&lt;<strong>main</strong>.AppliedFunction object at 0x7fda3e6e0580&gt;</p>
+<pre class="python"><code>print(&#39;Gradients are: $$\\begin{align}\\frac{\\partial}{\\partial x_1} f(2,3) &amp;= %f\\\\&#39; 
       &#39;\\frac{\\partial}{\\partial x_2} f(2,3) &amp;= %f\\end{align}$$&#39; % (x1.gradient, x2.gradient))</code></pre>
 <p>Gradients are: <span class="math display">\[\begin{align}\frac{\partial}{\partial x_1} f(2,3) &amp;= 18260.762731\\\frac{\partial}{\partial x_2} f(2,3) &amp;= 6689.544469\end{align}\]</span></p>
 <p>And the results match.</p>

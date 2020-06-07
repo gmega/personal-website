@@ -36,7 +36,7 @@ The call to `yield` in the function above means that every time the generator hi
 
 ```{python}
 gen = infinite_enum(5)
-print 'The first three elements are:', next(gen), next(gen), next(gen)
+print('The first three elements are:', next(gen), next(gen), next(gen))
 ```
 
 Another way of looking at a computation running as a generator function is as a thread that can voluntarily yield control. A group of such generators could then be coordinated so that when one yields, another one runs, effectively transforming groups of generators into a mechanism for cooperative multitasking. Indeed, the more recent work on [Python coroutines](https://docs.python.org/3/library/asyncio-task.html) (part of [asyncio](https://docs.python.org/3/library/asyncio.html)) leverages the generator infrastructure very much this way. But enough about Python.
@@ -48,13 +48,13 @@ Well, the Ruby language does not have generators. It does have [Fibers](https://
 [Continuations](https://en.wikipedia.org/wiki/Continuation) are a powerful control flow construct which allows you to "save" the current state of a computation and then resume it from that saved state whenever you like. This is similar to what generators do, except that with a generator you have a structured relationship between two computations which progress taking turns, as depicted in Fig. \@ref(fig:generator): on one end we have the _caller_ computation, which transfers control to the generator whenever it calls `next` and, on the other, we have the _generator_ computation, which transfers control back to the caller whenever it calls `yield`.
 
 ```{r generator, out.width='400px', fig.align='center', fig.cap='The two implicit alternating computations in generators.', echo=FALSE}
-knitr::include_graphics('/img/posts/2019-11-11-generators/generator.png')
+knitr::include_graphics('/img/posts/2019-11-11-generators/generator.png', error = FALSE)
 ```
 
 That is not what happens with continuations. Continuations will simply transfer control from the caller to an arbitrary saved state, forgetting that the caller ever existed. In particular, it is perfectly possible for a computation to transfer control back to an earlier point of itself (Fig. \@ref(fig:continuations)). In such situations, the only trace you will have that something else has happened when resuming said saved state are the eventual side effects that the preceding computation may have left behind before jumping back.
 
 ```{r continuations, out.width='400px', fig.align='center', fig.cap='Computation calling continuation into a previous point in time.', echo=FALSE}
-knitr::include_graphics('/img/posts/2019-11-11-generators/continuation.png')
+knitr::include_graphics('/img/posts/2019-11-11-generators/continuation.png', error = FALSE)
 ```
 
 This leads to the widely cited ["continuation sandwich"](https://groups.google.com/group/perl.perl6.language/msg/b0cfa757f0ce1cfd) example:

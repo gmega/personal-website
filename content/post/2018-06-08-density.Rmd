@@ -134,7 +134,7 @@ $$
 Now note that $p_k$ is the probability that one sample falls in bin $A_k$; i.e., that it falls between $t_k$ and $t_{k+1}$.
 
 ```{r density-bin, fig.cap='Histogram bins and the underlying density.', echo=FALSE}
-knitr::include_graphics('/img/posts/2017-06-08-density/density-bin.png')
+knitr::include_graphics('/img/posts/2017-06-08-density/density-bin.png', error = FALSE)
 ```
 
 Fig. \@ref(fig:density-bin) tells us, however, that $p_k$ can be expressed in terms of $f$ as:
@@ -212,7 +212,7 @@ The intuition for this is depicted in Fig. \@ref(fig:mvt): if we draw a rectangl
   3. is neither above nor below $f(x)$, in which case we can pick $t_k \leq \xi < t_{k+1}$, such that $a_k = p_k$.
 
 ```{r mvt, fig.cap='Mean value theorem for definite integrals.', echo=FALSE}
-knitr::include_graphics('/img/posts/2017-06-08-density/mvt.png')
+knitr::include_graphics('/img/posts/2017-06-08-density/mvt.png', error = FALSE)
 ```
 
 Recalling that $t_{k+1} - t_{k} = h$, we can therefore say that:
@@ -402,7 +402,7 @@ While discussing matters of statistical efficiency is beyond the scope of this p
 We start by dividing each of our intervals $A_k$ (our bins of length $h$) into $m$ subparts, as depicted in Fig. \@ref(fig:subparts). Each subpart is actually a smaller bin, which we refer to as $B_i$. For ease of notation, we assume that $x$ is contained in small bin $B_0$, and give negative indices to the small bins to the left of $x$. Finally, let $v_i$ be the number of points in our sample that fall in small bin $B_i$ ($\sum v_i = \sum n_i = n$).
 
 ```{r subparts, out.width='500px', fig.cap='Shifted histograms and their partial estimates.', echo=FALSE, fig.align='center'}
-knitr::include_graphics('/img/posts/2017-06-08-density/subparts.png')
+knitr::include_graphics('/img/posts/2017-06-08-density/subparts.png', error = FALSE)
 ```
 
 We know that the density estimate at $x$ is the average density coming from $m$ overlapping histograms. Looking at Fig. \@ref(fig:subparts), we see that we can express those in terms of the $v_i$ as follows:
