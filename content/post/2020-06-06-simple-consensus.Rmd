@@ -18,7 +18,7 @@ link-citations: true
 
 [Distributed consensus](https://en.wikipedia.org/wiki/Consensus_(computer_science)) - i.e., the problem of getting a set of processes to agree on a certain action or value over a network - is a fundamental problem of distributed computing. It arises in settings that range from group membership (i.e., tracking the set of servers in a server group that are currently online) to distributed database commits. And yet, despite its pervasiveness, it is anything but simple to solve.
 
-Today, I will revisit an impossibility result which states that if your network is allowed to lose messages then the problem cannot be solved. I recall how daunting it felt when I saw this result for the first time but, as I explain at the end of this post, the fact that you cannot provide hard guarantees does not mean you cannot do useful work.
+Today, I will revisit an impossibility result which states that if your network is allowed to lose messages then the problem cannot be solved. I recall how daunting it felt when I saw this result for the first time but, as I explain at the end of this post, the fact that you cannot provide hard guarantees all the time does not mean you cannot do useful work. 
 
 ## Synchronous Systems
 
@@ -62,7 +62,7 @@ If $A$ solves consensus, it means that it eventually terminates, so that there i
 knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/exec-alpha.png', error = FALSE)
 ```
 
-Now comes the interesting part. If our network channel is unreliable, this means that the last message in $\alpha$ may have failed to be delivered, leading to alternative execution $\alpha^{\prime}$, also shown in Fig. \@ref(fig:exec-alpha). Now note that since $p_1$ receives the exact same set of messages in $\alpha^{\prime}$ as it did in $\alpha$, then $\alpha^{\prime}$ is indistinguishable from $\alpha$ from the point of view of $p_1$. This means that if $p_1$ decides $\{1\}$ in $\alpha$, then it must also decide $\{1\}$ in $\alpha_1$. 
+Now comes the interesting part. If our network channel is unreliable, this means that the last message in $\alpha$ may have failed to be delivered, leading to alternative execution $\alpha^{\prime}$, also shown in Fig. \@ref(fig:exec-alpha). Now note that since $p_1$ receives the exact same set of messages in $\alpha^{\prime}$ as it did in $\alpha$, then $\alpha^{\prime}$ is indistinguishable from $\alpha$ from the point of view of $p_1$. This means that if $p_1$ decides $\{1\}$ in $\alpha$, then it must also decide $\{1\}$ in $\alpha^{\prime}$. 
 
 As for $p_2$, the execution is different, so it has two options: it either decides $\{0\}$ because of the missing message, or it decides $\{1\}$. If it decides $\{0\}$, then the agreement property is violated and $A$ does not solve consensus. It must be, therefore, that $p_2$ also decides $\{1\}$. 
 
@@ -72,9 +72,8 @@ From here, we can apply this procedure recursively until we peel off every singl
 knitr::include_graphics('/img/posts/2020-06-06-simple-consensus/contradiction.png', error = FALSE)
 ```
 
-
 By looking at execution $\alpha_{10}$ (Fig. \@ref(fig:alpha-empty)), in which $p_1$ starts with $\{1\}$ and $p_2$ starts with $\{0\}$, we see that $\alpha_{10}$ is indistinguishable, from the point of view of $p_1$, from $\alpha_{11}$. It must be, therefore, that $p_1$ decides $\{1\}$ in $\alpha_{11}$ and, by the agreement property, it must also be that $p_2$ decides $\{1\}$ in $\alpha_{10}$.
 
 But now look at execution $\alpha_{00}$, in which both $p_1$ and $p_2$ start with $\{0\}$. Clearly, $\alpha_{00}$ is indistinguishable from $\alpha_{10}$ from the point of view of $p_2$, so it must decide $\{1\}$. But this violates validity, which states that if all processes start with $v$ ($\{0\}$, in this case), then $v$ is the only possible decision value: a contradiction. $\blacksquare$
 
-This reveals a deeply disconcerting property of distributed systems: if your network is unreliable, you cannot really get much work done. Fortunately for us, however, reliability issues tend to happen sporadically: you can usually overcome a transiently faulty channel by retrying a transmission, and even more serious issues, such as network partitions, tend to be transient in time. Those still do, however, complicate distributed algorithm design to a significant degree. 
+This reveals a deeply disconcerting property of distributed systems: if your network is unreliable, you cannot really get much work done. Fortunately for us, however, reliability issues tend to happen sporadically: you can usually overcome a transiently faulty channel by retrying a transmission, and even more serious issues, such as network partitions, tend to be transient in time. What happens in practice, then, is that one usually is willing to give up "performance" (or [_liveness_](https://en.wikipedia.org/wiki/Liveness)) guarantees when faults happen, making the reasonable gamble that faults can be corrected and that eventually the system can resume making progress.
