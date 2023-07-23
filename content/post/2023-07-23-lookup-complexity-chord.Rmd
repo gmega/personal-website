@@ -1,5 +1,5 @@
 ---
-title: "Lookup Complexity in Chord"
+title: "Expected Lookup Complexity in Chord"
 author: "Giuliano Mega"
 date: 2023-07-23T00:00:00
 categories: ["algorithms", "p2p"]
@@ -12,7 +12,7 @@ output:
     df_print: paged
     highlight: pygments
     
-summary: 'As professional tides bring me into P2P once again and I revisit some classics of the P2P literature, it is disconcerting to realize just how poorly did I really understand some of those things in the past. One of those things is the expected lookup complexity of a DHT like Chord.'
+summary: 'As professional tides bring me into P2P once again and I revisit some classics of the P2P literature, it is disconcerting to realize just how poorly did I really understand some of those things in the past. And one of those things is the expected lookup complexity of a DHT like Chord.'
 
 bibliography: [bibliography.bib]
 link-citations: true
@@ -77,7 +77,7 @@ dht_plot <- function(g) {
 }
 ```
 
-As professional tides bring me into P2P once again and I revisit some classics of the P2P literature, it is disconcerting to realize just how poorly did I really understand some of those things in the past. One of those things is the lookup complexity of a DHT like Chord [@stoica-01].
+As professional tides bring me into P2P once again and I revisit some classics of the P2P literature, it is disconcerting to realize just how poorly did I really understand some of those things in the past. And one of those things is the expected lookup complexity of Chord [@stoica-01].
 
 From the outset, the problem seems simple enough. We start with a set of nodes $O = \left\{o_1, \cdots, o_n\right\}$ that is arranged in a ring (Fig. \@ref(fig:chord)) and to which Chord assigns, for each node $o_i \in O$, a random non-negative integer id -- let's call it $\id{o_i}$ -- such that $\id{o_i} \in \left[0, 2^m\right)$ for some natural number $m$. Fig. 
 
