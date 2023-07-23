@@ -1,0 +1,129 @@
+---
+title: "Lookup Complexity in Chord"
+author: "Giuliano Mega"
+date: 2023-07-23T00:00:00
+categories: ["algorithms", "p2p"]
+tags: ["dht", "chord", "complexity"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
+    highlight: pygments
+    
+summary: 'As professional tides bring me into P2P once again and I revisit some classics of the P2P literature, it is disconcerting to realize just how poorly did I really understand some of those things in the past. One of those things is the expected lookup complexity of a DHT like Chord.'
+
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+$$
+\newcommand{id}[1]{\text{id}\left({#1}\right)}
+$$
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(igraph)
+library(ggraph)
+library(RColorBrewer)
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+finger_table <- function(node_id, m) {
+  tibble(
+    from = rep(node_id, m + 1),
+    to = sapply(0:m, function(i) (node_id + 2^i) %% 2^m)
+  )
+}
+```
+
+```{r}
+chord_dht <- function(m, draw_fingers) {
+  n <- 2^m - 1
+  
+  colors <- rep('lightblue', n + 1)
+  
+  if (!is.null(draw_fingers)) {
+    colors[draw_fingers + 1] <- brewer.pal(n = length(draw_fingers), 'Dark2')
+  }
+  
+  nodes <- tibble(name=0:n) |> mutate(color = colors)
+  
+  purrr::map_df(draw_fingers, function(node_id) finger_table(node_id, m)) |>
+    graph_from_data_frame(directed = TRUE, vertices=nodes)
+}
+```
+
+```{r}
+dht_plot <- function(g) {
+  ggraph(g, layout = 'linear', circular = TRUE) +
+    geom_node_text(aes(label = name, angle = node_angle(x, y)), hjust = -1.5) +
+    geom_edge_arc(
+      aes(color = from), 
+      arrow = arrow(type = "closed", length = unit(2, 'mm')),
+      end_cap = circle(3, 'mm'),
+      show.legend = FALSE
+    ) + 
+    geom_node_point(shape = 21, size = 4, aes(fill = name)) +
+    scale_edge_color_gradientn(colours = c('red4', 'gold')) +
+    theme_graph() +
+    guides(fill = guide_none(), colour = NULL) + 
+    scale_x_continuous(expand = expand_scale(c(.20, .20))) +
+    scale_y_continuous(expand = expand_scale(c(.20, .20))) +
+    theme(plot.margin = unit(c(-1,-1,-1,-1), "cm"))
+}
+```
+
+As professional tides bring me into P2P once again and I revisit some classics of the P2P literature, it is disconcerting to realize just how poorly did I really understand some of those things in the past. One of those things is the lookup complexity of a DHT like Chord [@stoica-01].
+
+From the outset, the problem seems simple enough. We start with a set of nodes $O = \left\{o_1, \cdots, o_n\right\}$ that is arranged in a ring (Fig. \@ref(fig:chord)) and to which Chord assigns, for each node $o_i \in O$, a random non-negative integer id -- let's call it $\id{o_i}$ -- such that $\id{o_i} \in \left[0, 2^m\right)$ for some natural number $m$. Fig. 
+
+The protocol then guarantees -- and we will not discuss how it guarantees that cause it is not important here -- that each node $o_i$ eventually builds a local routing table, named a _finger table_, which contains up to $m$ entries such that the $k^{th}$ entry in its table points to a node $o_j \in O$ that has the closest id to $\id{o_i} + 2^k$, where $0 \leq k \leq m$^[For simplicity, we are also treating the successor of a node $o$ as a finger pointing to $\id{o} + 2^0 = \id{o} + 1$]. Fig. \@ref(fig:chord) depicts finger tables for nodes with ids $0$ and $20$.
+
+```{r chord, fig.cap='A full-network Chord DHT with m = $6$', fig.align='center', fig.width = 6, fig.height = 6, echo=TRUE, warning=FALSE}
+chord_dht(6, draw_fingers = c(0, 20)) |> dht_plot()
+```
+
+When a node with id $o_a$ wishes to find a node $o_b$, then, all it needs to do is to lookup the node in its own routing table that has the id that is closest to $\id{b}$. Because of the way fingers are arranged, $o_a$ is guaranteed to find a node $o_c$ such that $\id{o_c}$ is _at least_ within a distance of $2^{m - 1}$ of $\id{o_b}$. 
+
+$o_a$ can then ask $o_c$ to repeat this process, and return the node $o_d$ that it knows to be the closest to $o_b$. Again, because of the way fingers are constructed, we know that $o_d$ must know a node that has an id within at least $2^{m - 2}$ of the target. By continuing this process, it is not difficult to see that, after $m$ lookups, we will necessarily get to $o_b$ as we will find a node that is within distance $2^{m - m} = 1$ of it. 
+
+So there you have it, lookups always take less than $O(m) = O(\log 2^m)$ steps. Chord, however, makes a more subtle guarantee: namely that lookups take $O(\log n)$ for a network with size $n < 2^m$, with high probability. And that is the problem we want to get into. Let us put that as a theorem, like the original paper [@stoica-01] does:
+
+**Theorem.** _With high probability, the number of nodes that must be contacted to resolve a successor query in an $n$-node network is $O(\log n)$._
+
+**Proof sketch.** Suppose there are two nodes $o_a$ and $o_b$ that are part of a network containing $n$ nodes, such that $o_a$ is looking $o_b$ up. Following the reasoning we outlined before and assuming wlog that finger tables are complete, Chord guarantees that $o_a$ should know a node $o_c$ such that $\left(\id{o_b} - \id{o_c}\right) \mod 2^m \leq 2^{m-1}$; i.e. $o_c$ is within distance $2^{m-1}$, in id space, of $o_b$. Note that this is irrespective of the number of nodes $n$ in the network. 
+
+As before, this means once again that, after $\log N$ forwardings, we are guaranteed to have found a node that is within a distance of:
+
+$$
+\begin{equation}
+  2^{m - \log n} = \frac{2^m}{2^{\log n}} = \frac{2^m}{n}
+  (\#eq:distance-bound)
+\end{equation}
+$$
+of node $o_b$. 
+
+Ignoring rounding issues -- and recalling ids are integer valued -- this means that there are $\frac{2^m}{n}$ "vacant" ids between node $o_c$ and $o_b$. To prove the theorem, we would have to show that there are $O(\log n)$ nodes occupying these ids, with high probability. This would mean that, with high probability, there would be a logarithmic number of hops that need to be followed before we reach $o_b$, thus satisfying the bound. We will appease ourselves, however, with just showing that the expected number of nodes between $o_c$ and $o_b$ has to be $1$; namely, that on average there is only _one_ more hop to follow before we reach $o_b$. 
+
+To see that this is true, let us start by looking at the probability that some random id in the DHT is occupied. Since ids are assigned uniformly at random and there are $2^m$ such ids, it follows that each id can be occupied with probability $\frac{1}{2^m}$^[That is not exactly correct as two nodes cannot occupy the same id. But we will assume they can for the purposes of this analysis.]. This means that the probability $p$ that an id is occupied by one out of $n$ nodes is given by:
+
+$$
+\begin{equation}
+  p = \frac{n}{2^m}
+  (\#eq:occupation-probability)
+\end{equation}
+$$
+
+We can then treat id occupation as a Bernoulli experiment, meaning that for a given range of $s$ distinct ids, the probability of having $k \leq s$ occupied ids follows a binomial distribution $B(s, p)$. If $X \sim B(s,p)$, it follows that the expected number of occupied ids between $o_c$ and $o_b$ is given by:
+
+$$
+\mathbb{E}[X] = s \times p = \frac{2^m}{n} \times p = \frac{2^m}{n} \times \frac{n}{2^m} = 1
+$$
+
+which is what we wanted to demonstrate. $\blacksquare$
+
+This is not a complete proof, and it sweeps a number of important points under the rug - most notably that ids cannot be occupied twice, and that the expectation being $1$ may not trivially imply that $O(\log n)$ bound is satisfied whp. But we will defer the complete proof to another day.
