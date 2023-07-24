@@ -89,11 +89,11 @@ The Chord protocol guarantees that each node $o_i$ eventually builds a local rou
 chord_dht(m = 6, draw_fingers = c(0, 20)) |> dht_plot()
 ```
 
-When a node with id $o_a$ wishes to find a node $o_b$, then, all it needs to do is to lookup the node in its own routing table that has the id that is closest to $\id{b}$. Because of the way fingers are arranged, $o_a$ is guaranteed to find a node $o_c$ such that $\id{o_c}$ is _at least_ within a distance of $2^{m - 1}$ of $\id{o_b}$. 
+When a node with id $o_a$ wishes to find a node $o_b$, then, all it needs to do is to lookup the node in its own routing table that has the id that is closest to $\id{o_b}$. Because of the way fingers are arranged, $o_a$ is guaranteed to have in its routing table some node $o_c$ such that $\id{o_c}$ is _at least_ within a distance of $2^{m - 1}$ of $\id{o_b}$. 
 
-$o_a$ can then ask $o_c$ to repeat this process, and return the node $o_d$ that it knows to be the closest to $o_b$. Again, because of the way fingers are constructed, we know that $o_d$ must know a node that has an id within at least $2^{m - 2}$ of the target. By continuing this process, it is not difficult to see that, after $m$ lookups, we will necessarily get to $o_b$ as we will find a node that is within distance $2^{m - m} = 1$ of it. 
+$o_a$ can then ask $o_c$ to repeat this process, and return the node $o_d$ that it knows to be the closest to $o_b$. Again, because of the way fingers are constructed, we know that $o_d$ must have a node in its finger table that has an id within at least $2^{m - 2}$ of the target. By continuing this process iteratively, it is not difficult to see that, after $m$ steps, we will necessarily get to $o_b$ as we will find a node that is within distance $2^{m - m} = 1$ of it. 
 
-So there you have it, lookups always take less than $O(m) = O(\log 2^m)$ steps. Chord, however, makes a more subtle guarantee: namely that lookups take $O(\log n)$ for a network with size $n < 2^m$, with high probability. And that is the problem we want to get into. Let us put that as a theorem, like the original paper [@stoica-01] does:
+And this completes the basic intuition I already had: lookups always take less than $O(m) = O(\log 2^m)$ steps. Chord, however, makes a more subtle guarantee: namely that lookups take $O(\log n)$ with high probability for a network with size $n < 2^m$. And that is the problem we want to get into. Let us put that as a theorem, like the original paper [@stoica-01] does:
 
 **Theorem.** _With high probability, the number of nodes that must be contacted to resolve a successor query in an $n$-node network is $O(\log n)$._
 
