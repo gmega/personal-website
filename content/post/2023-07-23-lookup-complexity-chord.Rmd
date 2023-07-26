@@ -16,7 +16,7 @@ summary: 'As professional tides bring me into P2P once again and I revisit some 
 
 bibliography: [bibliography.bib]
 link-citations: true
-c---
+---
 
 $$
 \newcommand{id}[1]{\text{id}\left({#1}\right)}

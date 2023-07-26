@@ -12,6 +12,8 @@ output:
     df_print: paged
     highlight: pygments
     
+summary: "S/Kademlia"
+    
 bibliography: [bibliography.bib]
 link-citations: true
 ---
