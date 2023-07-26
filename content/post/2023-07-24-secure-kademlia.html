@@ -1,0 +1,72 @@
+---
+title: "Secure Key-Based Routing with S/Kademlia"
+author: "Giuliano Mega"
+date: 2023-07-24T00:00:00
+categories: ["algorithms", "p2p"]
+tags: ["dht", "kademlia", "security"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
+    highlight: pygments
+    
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+<link href="/rmarkdown-libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/pagedtable/js/pagedtable.js"></script>
+
+
+<p><span class="math display">\[
+\newcommand{\ping}{\text{PING}}
+\]</span>
+Open membership P2P systems are plagued by security issues and DHTs are no exception <span class="citation"><a href="#ref-urdaneta-11"><strong>urdaneta-11?</strong></a></span>. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT <span class="citation"><a href="#ref-maynmunkov-02"><strong>maynmunkov-02?</strong></a></span> in adversarial environments. The resulting work is named S/Kademlia <span class="citation"><a href="#ref-baumgart-07"><strong>baumgart-07?</strong></a></span><a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>. S/Kademlia is significant in that it underpins Discv5 implementations in the Ethereum network, and is also a part of the libp2p DHT spec.</p>
+<div id="types-of-attacks" class="section level2">
+<h2>Types of Attacks</h2>
+<p>Kademlia provides some protection against certain types of attacks, but is vulnerable to others.</p>
+<p><strong>Sybil attacks.</strong> Sybil identities are groups of ids an attacker can create to register multiple nodes within the network <span class="citation"><a href="#ref-urdaneta-11"><strong>urdaneta-11?</strong></a></span>, typically with the intent of disrupting routing or another ill intent. Kademlia does not provide any mechanism to prevent this. Kademlia also does not preclude an attacker from choosing its ids.</p>
+<p><strong>Eclipse attacks.</strong> In Eclipse attacks <span class="citation"><a href="#ref-urdaneta-11"><strong>urdaneta-11?</strong></a></span> an attacker hijacks nodes along multiple routing paths so that it can cut off parts of the network. Kademlia provides some natural level of resiliency to eclipse attacks as nodes will not update their <span class="math inline">\(k\)</span>-buckets with newly discovered nodes unless:</p>
+<ol style="list-style-type: decimal">
+<li>the <span class="math inline">\(k\)</span>-bucket in which the node is supposed to go into is not full;</li>
+<li>the <span class="math inline">\(k\)</span>-bucket is full, but the least recently seen node in it fails to respond to a <span class="math inline">\(\ping\)</span> message.</li>
+</ol>
+<p>Point <strong>(2)</strong> is what makes the network resilient to attackers attempting to replace routing entries with rogue (possibly Sybil) nodes. Point <strong>(1)</strong> implies that the network is vulnerable until it reaches critical mass. <span class="math inline">\(k\)</span>-buckets within the near vicinity of a node can remain underpopulated for a long time, however, meaning that nodes could remain exposed for longer depending on how routing is implemented.</p>
+<p><strong>Churn attacks.</strong> The fact that Kademlia nodes do not insert new nodes into their routing tables unless old ones stop responding to <span class="math inline">\(\ping\)</span> messages also precludes what the authors define as “churn attacks”, where an attacker inserts nodes into the network and then creates artificial churn to destabilize it. To see why this is harder with Kademlia, note that even if an attacker manages to insert nodes into someone else’s routing table, these nodes will get dropped as soon as they stop responding. Larger adversaries could probably still disrupt the network by inserting many nodes and then bringing them down all at the same time, but this is harder to do.</p>
+<p><strong>Adversarial routing.</strong> Adversaries can hijack query paths and respond with adversarial routing information so that lookups fail. Because lookup paths converge in Kademlia – and this was originally considered desirable as it made caching easier – a single rogue node may be able to disrupt all paths that converge on it. Authors propose that routing through disjoint routing paths can mitigate the issue (at the cost of caching), and estimate the probability of lookup failures in an adversarial environment as follows.</p>
+<p>They start by assuming that for a certain path length range <span class="math inline">\([1, k] \subset \mathbb{N}\)</span>, we can build <span class="math inline">\(k\)</span> separate sets of paths containing <span class="math inline">\(d\)</span> disjoint paths of that length each. They then assume, implicitly, that a lookup can select one of these paths at random to send a message.</p>
+<p>We can then compute the probability of a success by attempting to compute the probability that we pick a path without an adversary. Because we are picking a path uniformly at random, <em>this probability will equate with the probability that one such path exists, which is what we will attempt to compute next</em>.</p>
+<p>Paths of different lengths are distributed according to <span class="math inline">\(h(i)\)</span>, which we can take to be a discrete pdf, and we know that the fraction of adversarial nodes in the network is <span class="math inline">\(m\)</span>. Let <span class="math inline">\(L\)</span> be a random variable denoting the length of the path, and let <span class="math inline">\(S_i\)</span> be the number of paths of length <span class="math inline">\(i\)</span> containing no adversarial nodes.</p>
+<p>We can now compute the probability that at least one amongst all paths is not taken by adversarial nodes by looking at the probability that at least one path of one length <span class="math inline">\(i\)</span> does not contain an adversarial node:</p>
+<p><span class="math display" id="eq:back-of-the-envelope">\[
+\begin{align}
+  p_s = \mathbb{P}\left(\bigcup_{i=1}^{k} L = i\cap S_i \geq 1\right) &amp;\stackrel{1}{=}\\
+  \sum_{i = 1}^{k} \mathbb{P}\left(L = i\cap S_i \geq 1\right) &amp;= \\
+  \sum_{i = 1}^{k}\mathbb{P}(L = i \mid S_i = 1)\mathbb{P}(S_i \geq 1) &amp;\stackrel{2}{=} \\
+  \sum_{i = 1}^{k}\mathbb{P}(L=i)\mathbb{P}(S_i \geq 1) &amp;= \\
+  \sum_{i = 1}^{k} h(i)\mathbb{P}(S_i \geq 1)&amp;
+\tag{1}
+\end{align}
+\]</span>
+Where <span class="math inline">\(\stackrel{1}{=}\)</span> follows from the fact that path sets are disjoint, and <span class="math inline">\(\stackrel{2}{=}\)</span> follows from the fact that the probability with which we select a path of length <span class="math inline">\(i\)</span> is independent from whether or that given path of length <span class="math inline">\(i\)</span> contains adversarial nodes<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a>.</p>
+<p>We now focus on <span class="math inline">\(\mathbb{P}(S_i \geq 1)\)</span>, the probability that we have at least one path of length <span class="math inline">\(i\)</span> with no adversarial nodes. We will express this as <span class="math inline">\(1\)</span> minus the probability that <em>all paths have adversarial nodes</em>. Since the fraction of adversarial nodes is <span class="math inline">\(m\)</span>, a path of length <span class="math inline">\(i\)</span> has no adversarial nodes with probability <span class="math inline">\((1 - m)^i\)</span><a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a>, and therefore a path has at least one adversarial node with probability <span class="math inline">\(1 - (1 - m)^i\)</span>.</p>
+<p>Since we have <span class="math inline">\(d\)</span> disjoint paths, we can then compute the probability that all paths have at least one adversarial node by taking <span class="math inline">\((1 - (1 - m)^i)^d\)</span>. Finally, the probability that at least one path of length <span class="math inline">\(i\)</span> has no adversarial nodes is <span class="math inline">\(1 - (1 - (1 - m)^i)^d\)</span>. Plugging that into Eq. <a href="#eq:back-of-the-envelope">(1)</a>, we get:</p>
+<p><span class="math display">\[
+p_s = \sum_{i = 1}^{k} h(i)\mathbb{P}(S_i \geq 1) = \sum_{i = 1}^{k} h(i)\left(1 - (1 - (1 - m)^i)^d\right)
+\]</span></p>
+<p>Although I have done my best to try to interpret what authors were trying to calculate (they only show the equation for <span class="math inline">\(p_s\)</span>) this does nevertheless looks weird, particularly having <span class="math inline">\(h(i)\)</span> to weight the selection when we assume there are <span class="math inline">\(d\)</span> disjoint paths for a given length: these two things appear to contradict each other. If the formula expresses the selection of <span class="math inline">\(d\)</span> out of all paths, however, then I am not convinced it is correct.</p>
+</div>
+<div id="skademlia" class="section level1">
+<h1>S/Kademlia</h1>
+<p>S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. <a href="#fig:puzzles"><strong>??</strong></a>. The first puzzle constrains the node to find a public key whose hash</p>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Which one could assume, rather unsurprisingly, stands for Secure Kademlia.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>Note that this would not be true had we not broken down the <span class="math inline">\(S_i\)</span> by path length, as longer paths <em>are</em> more likely to contain adversarial nodes than shorter ones<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn3"><p>Making the usual simplification that <span class="math inline">\(m\)</span> remains constant as we draw nodes from the set<a href="#fnref3" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>

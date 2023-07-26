@@ -1,0 +1,77 @@
+---
+title: "Secure Key-Based Routing with S/Kademlia"
+author: "Giuliano Mega"
+date: 2023-07-24T00:00:00
+categories: ["algorithms", "p2p"]
+tags: ["dht", "kademlia", "security"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
+    highlight: pygments
+    
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+$$
+\newcommand{\ping}{\text{PING}}
+$$
+Open membership P2P systems are plagued by security issues and DHTs are no exception [@urdaneta-11]. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT [@maynmunkov-02] in adversarial environments. The resulting work is named S/Kademlia [@baumgart-07]^[Which one could assume, rather unsurprisingly, stands for Secure Kademlia.]. S/Kademlia is significant in that it underpins Discv5 implementations in the Ethereum network, and is also a part of the libp2p DHT spec. 
+
+## Types of Attacks
+
+Kademlia provides some protection against certain types of attacks, but is vulnerable to others. 
+
+**Sybil attacks.** Sybil identities are groups of ids an attacker can create to register multiple nodes within the network [@urdaneta-11], typically with the intent of disrupting routing or another ill intent. Kademlia does not provide any mechanism to prevent this. Kademlia also does not preclude an attacker from choosing its ids.
+
+**Eclipse attacks.** In Eclipse attacks [@urdaneta-11] an attacker hijacks nodes along multiple routing paths so that it can cut off parts of the network. Kademlia provides some natural level of resiliency to eclipse attacks as nodes will not update their $k$-buckets with newly discovered nodes unless:
+
+  1. the $k$-bucket in which the node is supposed to go into is not full;
+  2. the $k$-bucket is full, but the least recently seen node in it fails to respond to a $\ping$ message.
+
+Point **(2)** is what makes the network resilient to attackers attempting to replace routing entries with rogue (possibly Sybil) nodes. Point **(1)** implies that the network is vulnerable until it reaches critical mass. $k$-buckets within the near vicinity of a node can remain underpopulated for a long time, however, meaning that nodes could remain exposed for longer depending on how routing is implemented.
+
+**Churn attacks.** The fact that Kademlia nodes do not insert new nodes into their routing tables unless old ones stop responding to $\ping$ messages also precludes what the authors define as "churn attacks", where an attacker inserts nodes into the network and then creates artificial churn to destabilize it. To see why this is harder with Kademlia, note that even if an attacker manages to insert nodes into someone else's routing table, these nodes will get dropped as soon as they stop responding. Larger adversaries could probably still disrupt the network by inserting many nodes and then bringing them down all at the same time, but this is harder to do.
+
+**Adversarial routing.** Adversaries can hijack query paths and respond with adversarial routing information so that lookups fail. Because lookup paths converge in Kademlia -- and this was originally considered desirable as it made caching easier -- a single rogue node may be able to disrupt all paths that converge on it. Authors propose that routing through disjoint routing paths can mitigate the issue (at the cost of caching), and estimate the probability of lookup failures in an adversarial environment as follows.
+
+They start by assuming that for a certain path length range $[1, k] \subset \mathbb{N}$, we can build $k$ separate sets of paths containing $d$ disjoint paths of that length each. They then assume, implicitly, that a lookup can select one of these paths at random to send a message. 
+
+We can then compute the probability of a success by attempting to compute the probability that we pick a path without an adversary. Because we are picking a path uniformly at random, _this probability will equate with the probability that one such path exists, which is what we will attempt to compute next_. 
+
+Paths of different lengths are distributed according to $h(i)$, which we can take to be a discrete pdf, and we know that the fraction of adversarial nodes in the network is $m$. Let $L$ be a random variable denoting the length of the path, and let $S_i$ be the number of paths of length $i$ containing no adversarial nodes. 
+
+We can now compute the probability that at least one amongst all paths is not taken by adversarial nodes by looking at the probability that at least one path of one length $i$ does not contain an adversarial node:
+
+$$
+\begin{align}
+  p_s = \mathbb{P}\left(\bigcup_{i=1}^{k} L = i\cap S_i \geq 1\right) &\stackrel{1}{=}\\
+  \sum_{i = 1}^{k} \mathbb{P}\left(L = i\cap S_i \geq 1\right) &= \\ 
+  \sum_{i = 1}^{k}\mathbb{P}(L = i \mid S_i = 1)\mathbb{P}(S_i \geq 1) &\stackrel{2}{=} \\
+  \sum_{i = 1}^{k}\mathbb{P}(L=i)\mathbb{P}(S_i \geq 1) &= \\
+  \sum_{i = 1}^{k} h(i)\mathbb{P}(S_i \geq 1)&
+(#eq:back-of-the-envelope)
+\end{align}
+$$
+Where $\stackrel{1}{=}$ follows from the fact that path sets are disjoint, and $\stackrel{2}{=}$ follows from the fact that the probability with which we select a path of length $i$ is independent from whether or that given path of length $i$ contains adversarial nodes^[Note that this would not be true had we not broken down the $S_i$ by path length, as longer paths _are_ more likely to contain adversarial nodes than shorter ones].
+
+We now focus on $\mathbb{P}(S_i \geq 1)$, the probability that we have at least one path of length $i$ with no adversarial nodes. We will express this as $1$ minus the probability that _all paths have adversarial nodes_. Since the fraction of adversarial nodes is $m$, a path of length $i$ has no adversarial nodes with probability $(1 - m)^i$^[Making the usual simplification that $m$ remains constant as we draw nodes from the set], and therefore a path has at least one adversarial node with probability $1 - (1 - m)^i$.
+
+Since we have $d$ disjoint paths, we can then compute the probability that all paths have at least one adversarial node by taking $(1 - (1 - m)^i)^d$. Finally, the probability that at least one path of length $i$ has no adversarial nodes is $1 - (1 - (1 - m)^i)^d$. Plugging that into Eq. \@ref(eq:back-of-the-envelope), we get:
+
+$$
+p_s = \sum_{i = 1}^{k} h(i)\mathbb{P}(S_i \geq 1) = \sum_{i = 1}^{k} h(i)\left(1 - (1 - (1 - m)^i)^d\right)
+$$
+
+Although I have done my best to try to interpret what authors were trying to calculate (they only show the equation for $p_s$) this does nevertheless looks weird, particularly having $h(i)$ to weight the selection when we assume there are $d$ disjoint paths for a given length: these two things appear to contradict each other. If the formula expresses the selection of $d$ out of all paths, however, then I am not convinced it is correct.
+
+# S/Kademlia
+
+S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. \@ref(fig:puzzles). The first puzzle constrains the node to find a public key whose hash 
+
+
+
+
