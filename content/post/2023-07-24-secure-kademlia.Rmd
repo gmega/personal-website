@@ -12,7 +12,7 @@ output:
     df_print: paged
     highlight: pygments
     
-summary: "S/Kademlia"
+summary: "Open membership P2P systems are plagued by security issues and DHTs are no exception. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT in adversarial environments. The resulting work is named S/Kademlia, and it is significant in that it underpins a number of practical DHT implementations, including the  libp2p DHT spec."
     
 bibliography: [bibliography.bib]
 link-citations: true
@@ -21,7 +21,7 @@ link-citations: true
 $$
 \newcommand{\ping}{\text{PING}}
 $$
-Open membership P2P systems are plagued by security issues and DHTs are no exception [@urdaneta-11]. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT [@maynmunkov-02] in adversarial environments. The resulting work is named S/Kademlia [@baumgart-07]^[Which one could assume, rather unsurprisingly, stands for Secure Kademlia.]. S/Kademlia is significant in that it underpins Discv5 implementations in the Ethereum network, and is also a part of the libp2p DHT spec. 
+Open membership P2P systems are plagued by security issues and DHTs are no exception [@urdaneta-11]. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT [@maynmunkov-02] in adversarial environments. The resulting work is named S/Kademlia [@baumgart-07]^[Which one could assume, rather unsurprisingly, stands for Secure Kademlia.], and it is significant in that it underpins a number of practical DHT implementations, including the  libp2p DHT spec.. 
 
 ## Types of Attacks
 
@@ -68,11 +68,36 @@ $$
 p_s = \sum_{i = 1}^{k} h(i)\mathbb{P}(S_i \geq 1) = \sum_{i = 1}^{k} h(i)\left(1 - (1 - (1 - m)^i)^d\right)
 $$
 
-Although I have done my best to try to interpret what authors were trying to calculate (they only show the equation for $p_s$) this does nevertheless looks weird, particularly having $h(i)$ to weight the selection when we assume there are $d$ disjoint paths for a given length: these two things appear to contradict each other. If the formula expresses the selection of $d$ out of all paths, however, then I am not convinced it is correct.
+Although I have done my best to try to interpret what authors were trying to calculate (they only show the equation for $p_s$) this does nevertheless look weird, particularly having $h(i)$ to weight the selection when we assume there are $d$ disjoint paths for a given length: these two things appear to contradict each other. If the formula should be expressing the probability of success for a random selection of size $d$ over all paths, on the other hand, then I am not convinced it is correct.
 
-# S/Kademlia
+## S/Kademlia
 
-S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. \@ref(fig:puzzles). The first puzzle constrains the node to find a public key whose hash 
+### Sybil Identities and Crypto Puzzles
+
+S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. \@ref(fig:puzzles). The first puzzle -- referred to as the "static" puzzle -- constrains the node to find a public key whose hash starts with $c_1$ zeroes. Then a second crypto puzzle -- referred to as the "dynamic" puzzle -- forces the node to find a number $x$ such that the hash of $\text{node_id} \oplus x$ starts with $c_2$ zeroes, where $\oplus$ is the XOR of the binary representation of both numbers. 
+
+Both puzzles ensure that it is not easy to create a node id and, although it is clear that the static puzzle needs to be run for a node key pair to be created created, it is unclear when and now the second puzzle fits into the bigger picture.
+
+### Sibling Lists
+
+S/Kademlia also introduces the notion of sibling lists, which point to nodes that replicate a key-value pair. Unlike Kademlia, S/Kademlia has a separate parameter $s$ for siblings so that the size of the replication set for a key-value pair is different from the parameter $k$, which is used for routing redundancy (i.e., in Kademlia, $s = k$).
+
+One of the goals here is to simplify the $k$-bucket splitting rules. Kademlia uses a dynamic binary whose leaves are $k$-buckets. A $k$-bucket gets split whenever a new contact comes in a full $k$-bucket which contains the node's own id. The problem is with unbalanced DHTs, like the one in Fig. \@ref(fig:unbalanced) (a).
+
+```{r unbalanced, fig.cap='**(a)** non-uniform DHT and **(b)** Routing table at $0000$ after all nodes join.', echo=FALSE, fig.align='center'}
+knitr::include_graphics('/img/posts/2023-07-24-secure-kademlia/unbalanced-dht.png', error = FALSE)
+```
+
+Suppose for the sake of argument that $k = 2$. If nodes were to join in the specified order; i.e. $0000$ joins first, then $1101$, then $1100$, and so on, then the first contacts to be seen by node $0000$ would be $1101$ and $1100$, which would fill up the $k$-bucket with leading prefix $1xxx$ (Figure \@ref(fig:unbalanced) (b)). This would cause nodes $1010$ and $1001$ to be discarded on join as the $k$-bucket would be already full, leading the closest neighborhood of $0000$ to be undersampled.
+
+Kademlia therefore relaxes this rule by allowing the bucket to be split if the incoming nodes are closer to the receiving node than any node in its $k$-buckets. This means that when $1010$ joins, node $0000$ would figure that $1010$ is closer to itself than any other node it knows, and therefore would allow the $k$-bucket to be split (Fig. \@ref(fig:relaxed-split) (a)). 
+
+```{r relaxed-split, fig.cap='Table with relaxed splitting after **(a)** $1010$ and $1001$ join and **(b)** $1000$ join.', echo=FALSE, fig.align='center'}
+knitr::include_graphics('/img/posts/2023-07-24-secure-kademlia/relaxed-splitting.png', error = FALSE)
+```
+
+Authors argue that this is complex and unnecessary, and that using a sibling list of size $s$ makes things simpler as it does not require having relaxed bucket splits. They therefore adopt a single splitting rule, and do away with the buckets in the $[0, 2^{i-1})$ interval entirely, keeping the sibling list instead.
+
 
 
 

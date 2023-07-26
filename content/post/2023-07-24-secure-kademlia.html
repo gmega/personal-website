@@ -12,7 +12,7 @@ output:
     df_print: paged
     highlight: pygments
     
-summary: 'S/Kademlia'
+summary: "Open membership P2P systems are plagued by security issues and DHTs are no exception. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT in adversarial environments. The resulting work is named S/Kademlia, and it is significant in that it underpins a number of practical DHT implementations, including the  libp2p DHT spec."
     
 bibliography: [bibliography.bib]
 link-citations: true
@@ -25,7 +25,7 @@ link-citations: true
 <p><span class="math display">\[
 \newcommand{\ping}{\text{PING}}
 \]</span>
-Open membership P2P systems are plagued by security issues and DHTs are no exception <span class="citation"><a href="#ref-urdaneta-11"><strong>urdaneta-11?</strong></a></span>. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT <span class="citation"><a href="#ref-maynmunkov-02"><strong>maynmunkov-02?</strong></a></span> in adversarial environments. The resulting work is named S/Kademlia <span class="citation"><a href="#ref-baumgart-07"><strong>baumgart-07?</strong></a></span><a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>. S/Kademlia is significant in that it underpins Discv5 implementations in the Ethereum network, and is also a part of the libp2p DHT spec.</p>
+Open membership P2P systems are plagued by security issues and DHTs are no exception <span class="citation"><a href="#ref-urdaneta-11"><strong>urdaneta-11?</strong></a></span>. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT <span class="citation"><a href="#ref-maynmunkov-02"><strong>maynmunkov-02?</strong></a></span> in adversarial environments. The resulting work is named S/Kademlia <span class="citation"><a href="#ref-baumgart-07"><strong>baumgart-07?</strong></a></span><a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>, and it is significant in that it underpins a number of practical DHT implementations, including the libp2p DHT spec..</p>
 <div id="types-of-attacks" class="section level2">
 <h2>Types of Attacks</h2>
 <p>Kademlia provides some protection against certain types of attacks, but is vulnerable to others.</p>
@@ -58,11 +58,35 @@ Where <span class="math inline">\(\stackrel{1}{=}\)</span> follows from the fact
 <p><span class="math display">\[
 p_s = \sum_{i = 1}^{k} h(i)\mathbb{P}(S_i \geq 1) = \sum_{i = 1}^{k} h(i)\left(1 - (1 - (1 - m)^i)^d\right)
 \]</span></p>
-<p>Although I have done my best to try to interpret what authors were trying to calculate (they only show the equation for <span class="math inline">\(p_s\)</span>) this does nevertheless looks weird, particularly having <span class="math inline">\(h(i)\)</span> to weight the selection when we assume there are <span class="math inline">\(d\)</span> disjoint paths for a given length: these two things appear to contradict each other. If the formula expresses the selection of <span class="math inline">\(d\)</span> out of all paths, however, then I am not convinced it is correct.</p>
+<p>Although I have done my best to try to interpret what authors were trying to calculate (they only show the equation for <span class="math inline">\(p_s\)</span>) this does nevertheless look weird, particularly having <span class="math inline">\(h(i)\)</span> to weight the selection when we assume there are <span class="math inline">\(d\)</span> disjoint paths for a given length: these two things appear to contradict each other. If the formula should be expressing the probability of success for a random selection of size <span class="math inline">\(d\)</span> over all paths, on the other hand, then I am not convinced it is correct.</p>
 </div>
-<div id="skademlia" class="section level1">
-<h1>S/Kademlia</h1>
-<p>S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. <a href="#fig:puzzles"><strong>??</strong></a>. The first puzzle constrains the node to find a public key whose hash</p>
+<div id="skademlia" class="section level2">
+<h2>S/Kademlia</h2>
+<div id="sybil-identities-and-crypto-puzzles" class="section level3">
+<h3>Sybil Identities and Crypto Puzzles</h3>
+<p>S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. <a href="#fig:puzzles"><strong>??</strong></a>. The first puzzle – referred to as the “static” puzzle – constrains the node to find a public key whose hash starts with <span class="math inline">\(c_1\)</span> zeroes. Then a second crypto puzzle – referred to as the “dynamic” puzzle – forces the node to find a number <span class="math inline">\(x\)</span> such that the hash of <span class="math inline">\(\text{node_id} \oplus x\)</span> starts with <span class="math inline">\(c_2\)</span> zeroes, where <span class="math inline">\(\oplus\)</span> is the XOR of the binary representation of both numbers.</p>
+<p>Both puzzles ensure that it is not easy to create a node id and, although it is clear that the static puzzle needs to be run for a node key pair to be created created, it is unclear when and now the second puzzle fits into the bigger picture.</p>
+</div>
+<div id="sibling-lists" class="section level3">
+<h3>Sibling Lists</h3>
+<p>S/Kademlia also introduces the notion of sibling lists, which point to nodes that replicate a key-value pair. Unlike Kademlia, S/Kademlia has a separate parameter <span class="math inline">\(s\)</span> for siblings so that the size of the replication set for a key-value pair is different from the parameter <span class="math inline">\(k\)</span>, which is used for routing redundancy (i.e., in Kademlia, <span class="math inline">\(s = k\)</span>).</p>
+<p>One of the goals here is to simplify the <span class="math inline">\(k\)</span>-bucket splitting rules. Kademlia uses a dynamic binary whose leaves are <span class="math inline">\(k\)</span>-buckets. A <span class="math inline">\(k\)</span>-bucket gets split whenever a new contact comes in a full <span class="math inline">\(k\)</span>-bucket which contains the node’s own id. The problem is with unbalanced DHTs, like the one in Fig. <a href="#fig:unbalanced">1</a> (a).</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:unbalanced"></span>
+<img src="../../../../../../../img/posts/2023-07-24-secure-kademlia/unbalanced-dht.png" alt="**(a)** non-uniform DHT and **(b)** Routing table at $0000$ after all nodes join."  />
+<p class="caption">
+Figure 1: <strong>(a)</strong> non-uniform DHT and <strong>(b)</strong> Routing table at <span class="math inline">\(0000\)</span> after all nodes join.
+</p>
+</div>
+<p>Suppose for the sake of argument that <span class="math inline">\(k = 2\)</span>. If nodes were to join in the specified order; i.e. <span class="math inline">\(0000\)</span> joins first, then <span class="math inline">\(1101\)</span>, then <span class="math inline">\(1100\)</span>, and so on, then the first contacts to be seen by node <span class="math inline">\(0000\)</span> would be <span class="math inline">\(1101\)</span> and <span class="math inline">\(1100\)</span>, which would fill up the <span class="math inline">\(k\)</span>-bucket with leading prefix <span class="math inline">\(1xxx\)</span> (Figure <a href="#fig:unbalanced">1</a> (b)). This would cause nodes <span class="math inline">\(1010\)</span> and <span class="math inline">\(1001\)</span> to be discarded on join as the <span class="math inline">\(k\)</span>-bucket would be already full, leading the closest neighborhood of <span class="math inline">\(0000\)</span> to be undersampled.</p>
+<p>Kademlia therefore relaxes this rule by allowing the bucket to be split if the incoming nodes are closer to the receiving node than any node in its <span class="math inline">\(k\)</span>-buckets. This means that when <span class="math inline">\(1010\)</span> joins, node <span class="math inline">\(0000\)</span> would figure that <span class="math inline">\(1010\)</span> is closer to itself than any other node it knows, and therefore would allow the <span class="math inline">\(k\)</span>-bucket to be split (Fig. <a href="#fig:relaxed-split">2</a> (a)).</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:relaxed-split"></span>
+<img src="../../../../../../../img/posts/2023-07-24-secure-kademlia/relaxed-splitting.png" alt="Table with relaxed splitting after **(a)** $1010$ and $1001$ join and **(b)** $1000$ join."  />
+<p class="caption">
+Figure 2: Table with relaxed splitting after <strong>(a)</strong> <span class="math inline">\(1010\)</span> and <span class="math inline">\(1001\)</span> join and <strong>(b)</strong> <span class="math inline">\(1000\)</span> join.
+</p>
+</div>
+<p>Authors argue that this is complex and unnecessary, and that using a sibling list of size <span class="math inline">\(s\)</span> makes things simpler as it does not require having relaxed bucket splits. They therefore adopt a single splitting rule, and do away with the buckets in the <span class="math inline">\([0, 2^{i-1})\)</span> interval entirely, keeping the sibling list instead.</p>
+</div>
 </div>
 <div class="footnotes footnotes-end-of-document">
 <hr />
