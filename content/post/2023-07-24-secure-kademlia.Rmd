@@ -21,7 +21,7 @@ link-citations: true
 $$
 \newcommand{\ping}{\text{PING}}
 $$
-Open membership P2P systems are plagued by security issues and DHTs are no exception [@urdaneta-11]. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT [@maymounkov-02] in adversarial environments. The resulting work is named S/Kademlia [@baumgart-07]^[Which one could assume, rather unsurprisingly, stands for Secure Kademlia.], and it is significant in that it underpins a number of practical DHT implementations, including the  libp2p DHT spec.. 
+Open membership P2P systems are plagued by security issues and DHTs are no exception [@urdaneta-11]. In this post, I will try to summarize my understanding of one attempt at mitigating some of the security issues found in the Kademlia DHT [@maymounkov-02] in adversarial environments. The resulting work  [@baumgart-07] is named S/Kademlia^[Which one could assume, rather unsurprisingly, stands for Secure Kademlia.], and it is significant in that it underpins a number of practical DHT implementations, including the  libp2p DHT spec.. 
 
 ## Types of Attacks
 
@@ -42,11 +42,11 @@ Point **(2)** is what makes the network resilient to attackers attempting to rep
 
 They start by assuming that for a certain path length range $[1, k] \subset \mathbb{N}$, we can build $k$ separate sets of paths containing $d$ disjoint paths of that length each. They then assume, implicitly, that a lookup can select one of these paths at random to send a message. 
 
-We can then compute the probability of a success by attempting to compute the probability that we pick a path without an adversary. Because we are picking a path uniformly at random, _this probability will equate with the probability that one such path exists, which is what we will attempt to compute next_. 
+We can then compute the probability of a success by attempting to compute the probability that we pick a path without an adversary. Because we are picking a path uniformly at random, _this probability will equate with the probability that one such path exists_^[Which is a very frequentist thing to say. :-)], which is what we will attempt to compute next. 
 
-Paths of different lengths are distributed according to $h(i)$, which we can take to be a discrete pdf, and we know that the fraction of adversarial nodes in the network is $m$. Let $L$ be a random variable denoting the length of the path, and let $S_i$ be the number of paths of length $i$ containing no adversarial nodes. 
+Paths of different lengths are distributed according to $h(i)$, which we can take to be a discrete pdf, and we know that the fraction of adversarial nodes in the network is $m$. Let $L$ be a random variable denoting the length of a path drawn uniformly at random, and let $S_i$ be the number of paths of length $i$ containing no adversarial nodes. 
 
-We can now compute the probability that at least one amongst all paths is not taken by adversarial nodes by looking at the probability that at least one path of one length $i$ does not contain an adversarial node:
+We can now compute the probability that we draw a path that does not contain adversarial nodes:
 
 $$
 \begin{align}
@@ -58,9 +58,9 @@ $$
 (#eq:back-of-the-envelope)
 \end{align}
 $$
-Where $\stackrel{1}{=}$ follows from the fact that path sets are disjoint, and $\stackrel{2}{=}$ follows from the fact that the probability with which we select a path of length $i$ is independent from whether or that given path of length $i$ contains adversarial nodes^[Note that this would not be true had we not broken down the $S_i$ by path length, as longer paths _are_ more likely to contain adversarial nodes than shorter ones].
+Where $\stackrel{1}{=}$ follows from the fact that path sets are disjoint (i.e. you cannot select paths of different lenghts at the same time), and $\stackrel{2}{=}$ follows from the fact that the probability with which we select a path of length $i$ is independent from whether or not the set of paths of length $i$ contain adversarial nodes^[Note that this would not be true had we not broken down the $S_i$ by path length, as longer paths _are_ more likely to contain adversarial nodes than shorter ones].
 
-We now focus on $\mathbb{P}(S_i \geq 1)$, the probability that we have at least one path of length $i$ with no adversarial nodes. We will express this as $1$ minus the probability that _all paths have adversarial nodes_. Since the fraction of adversarial nodes is $m$, a path of length $i$ has no adversarial nodes with probability $(1 - m)^i$^[Making the usual simplification that $m$ remains constant as we draw nodes from the set], and therefore a path has at least one adversarial node with probability $1 - (1 - m)^i$.
+We now focus on $\mathbb{P}(S_i \geq 1)$, the probability that we have at least one path of length $i$ with no adversarial nodes which, recall, is the same as the probability of picking a path of length $i$ with no adversarial nodes when selecting uniformly at random. We will express this as $1$ minus the probability that _all paths have adversarial nodes_. Since the fraction of adversarial nodes is $m$, a path of length $i$ has no adversarial nodes with probability $(1 - m)^i$^[Making the usual simplification that $m$ remains constant as we draw nodes from the set], and therefore a path has at least one adversarial node with probability $1 - (1 - m)^i$.
 
 Since we have $d$ disjoint paths, we can then compute the probability that all paths have at least one adversarial node by taking $(1 - (1 - m)^i)^d$. Finally, the probability that at least one path of length $i$ has no adversarial nodes is $1 - (1 - (1 - m)^i)^d$. Plugging that into Eq. \@ref(eq:back-of-the-envelope), we get:
 
