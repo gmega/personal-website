@@ -27,14 +27,14 @@ Open membership P2P systems are plagued by security issues and DHTs are no excep
 
 Kademlia provides some protection against certain types of attacks, but is vulnerable to others. 
 
-**Sybil attacks.** Sybil identities are groups of ids an attacker can create to register multiple nodes within the network [@urdaneta-11], typically with the intent of disrupting routing or another ill intent. Kademlia does not provide any mechanism to prevent this. Kademlia also does not preclude an attacker from choosing its ids.
+**Sybil attacks.** Sybil identities are groups of ids an attacker can create to register multiple nodes within the network [@urdaneta-11], typically with the intent of disrupting routing or another ill intent. Kademlia does not provide any mechanism to prevent this. Kademlia also does not preclude an attacker from choosing its ids, meaning that not only an attacker can create multiple identities, they can also choose the position in the network they want to create these identities in.
 
-**Eclipse attacks.** In Eclipse attacks [@urdaneta-11] an attacker hijacks nodes along multiple routing paths so that it can cut off parts of the network. Kademlia provides some natural level of resiliency to eclipse attacks as nodes will not update their $k$-buckets with newly discovered nodes unless:
+**Eclipse attacks.** In Eclipse attacks [@urdaneta-11] an attacker occupies node ids along multiple routing paths (possibly using Sybil identities) so that it can cut off (or "eclipse") selected parts of the network. Kademlia provides some natural level of resiliency to eclipse attacks as nodes will not update their $k$-buckets with newly discovered nodes unless:
 
   1. the $k$-bucket in which the node is supposed to go into is not full;
   2. the $k$-bucket is full, but the least recently seen node in it fails to respond to a $\ping$ message.
 
-Point **(2)** is what makes the network resilient to attackers attempting to replace routing entries with rogue (possibly Sybil) nodes. Point **(1)** implies that the network is vulnerable until it reaches critical mass. $k$-buckets within the near vicinity of a node can remain underpopulated for a long time, however, meaning that nodes could remain exposed for longer depending on how routing is implemented.
+Point **(2)** is what makes the network resilient to attackers attempting to replace routing entries with entries pointing to rogue nodes. Point **(1)** implies that the network is vulnerable until it reaches critical mass. $k$-buckets within the near vicinity of a node can remain underpopulated for a long time, however, meaning that nodes could remain exposed for longer depending on how routing is implemented.
 
 **Churn attacks.** The fact that Kademlia nodes do not insert new nodes into their routing tables unless old ones stop responding to $\ping$ messages also precludes what the authors define as "churn attacks", where an attacker inserts nodes into the network and then creates artificial churn to destabilize it. To see why this is harder with Kademlia, note that even if an attacker manages to insert nodes into someone else's routing table, these nodes will get dropped as soon as they stop responding. Larger adversaries could probably still disrupt the network by inserting many nodes and then bringing them down all at the same time, but this is harder to do.
 
