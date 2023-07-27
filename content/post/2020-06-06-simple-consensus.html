@@ -16,18 +16,15 @@ bibliography: [bibliography.bib]
 link-citations: true
 ---
 
-<script src="/rmarkdown-libs/accessible-code-block/empty-anchor.js"></script>
 <link href="/rmarkdown-libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
 <script src="/rmarkdown-libs/pagedtable/js/pagedtable.js"></script>
-<link href="/rmarkdown-libs/anchor-sections/anchor-sections.css" rel="stylesheet" />
-<script src="/rmarkdown-libs/anchor-sections/anchor-sections.js"></script>
 
 
 <p><a href="https://en.wikipedia.org/wiki/Consensus_(computer_science)">Distributed consensus</a> - i.e., the problem of getting a set of processes to agree on a certain action or value over a network - is a fundamental problem of distributed computing. It arises in settings that range from group membership (i.e., tracking the set of servers in a server group that are currently online) to distributed database commits. And yet, despite its pervasiveness, it is anything but simple to solve.</p>
 <p>Today, I will revisit an impossibility result which states that if your network is allowed to lose arbitrarily many messages then the problem cannot be solved. I recall how daunting it felt when I saw this result for the first time but, as I explain at the end of this post, the fact that you cannot provide hard guarantees all the time does not mean you cannot do useful work.</p>
 <div id="synchronous-systems" class="section level2">
 <h2>Synchronous Systems</h2>
-<p>To make matters simpler, we will discuss this result in the context of <em>synchronous distributed systems</em> <span class="citation">[<a href="#ref-lynch-96" role="doc-biblioref">1</a>]</span>. A synchronous distributed system is a simplified model in which we assume that processes execute in lock-step rounds. At each round, each process:</p>
+<p>To make matters simpler, we will discuss this result in the context of <em>synchronous distributed systems</em> <span class="citation"><a href="#ref-lynch-96">[1]</a></span>. A synchronous distributed system is a simplified model in which we assume that processes execute in lock-step rounds. At each round, each process:</p>
 <ol style="list-style-type: decimal">
 <li>generates outgoing messages to its neighbors;</li>
 <li>processes incoming messages from its neighbors;</li>
@@ -35,8 +32,8 @@ link-citations: true
 </ol>
 <p>This is easier to reason about than “regular” distributed systems because we do not have to worry about messages taking too long to be delivered, being delivered out of order, or about processes that are slow or lag behind others: by the beginning of the next round, all messages will have been delivered, and all computation will have been completed. There is no bound on the size of messages or the amount of computation done that can be done at each round.</p>
 <p>An example of a synchronous execution of two processes is shown in Fig. <a href="#fig:sync-exec">1</a>.</p>
-<div class="figure" style="text-align: center"><span id="fig:sync-exec"></span>
-<img src="/img/posts/2020-06-06-simple-consensus/sync-exec.png" alt="Two processes exchanging messages in a synchronous distributed system." width="250px" />
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:sync-exec"></span>
+<img src="../../../../../../../img/posts/2020-06-06-simple-consensus/sync-exec.png" alt="Two processes exchanging messages in a synchronous distributed system." width="250px" />
 <p class="caption">
 Figure 1: Two processes exchanging messages in a synchronous distributed system.
 </p>
@@ -45,8 +42,8 @@ Figure 1: Two processes exchanging messages in a synchronous distributed system.
 <div id="consensus-in-synchronous-systems" class="section level2">
 <h2>Consensus in Synchronous Systems</h2>
 <p>We are now ready to define what “solving” consensus means. Let <span class="math inline">\(p_1\)</span> and <span class="math inline">\(p_2\)</span> be two processes connected by a single, unreliable network link (Fig. <a href="#fig:two-processes">2</a>). Each process starts by picking a value <span class="math inline">\(v\)</span> from <span class="math inline">\(\{0,1\}\)</span> (which could mean, for instance, “commit” or “abort”<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>). Then, at the end of our consensus algorithm, we want both processes to have <em>decided</em> on either <span class="math inline">\(1\)</span> or <span class="math inline">\(0\)</span>. For consensus to be <em>solved</em>, such decision must respect three properties:</p>
-<div class="figure" style="text-align: center"><span id="fig:two-processes"></span>
-<img src="/img/posts/2020-06-06-simple-consensus/system.png" alt="Two processes connected by an unreliable network link." width="250px" />
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:two-processes"></span>
+<img src="../../../../../../../img/posts/2020-06-06-simple-consensus/system.png" alt="Two processes connected by an unreliable network link." width="250px" />
 <p class="caption">
 Figure 2: Two processes connected by an unreliable network link.
 </p>
@@ -61,8 +58,8 @@ Figure 2: Two processes connected by an unreliable network link.
 <p><strong>Proof.</strong> The proof will be by contradiction. Suppose there were some algorithm <em>A</em> which did solve consensus in our case. For the sake of argument let us assume, without loss of generality, that <span class="math inline">\(p_1\)</span> and <span class="math inline">\(p_2\)</span> have initially chosen <span class="math inline">\(\{1\}\)</span> as their starting value.</p>
 <p>We make the further assumption that processes send a message to each other <strong>at every round</strong> (recall our distributed system is synchronous). This is without loss of generality as well: you can imagine that processes could simply send empty messages if they wanted to not send anything at a given round.</p>
 <p>If <span class="math inline">\(A\)</span> solves consensus, it means that it eventually terminates, so that there is a round <span class="math inline">\(r \in \mathbb{N}\)</span> such that, by that round, both processes have to have decided. Again, since both processes started with <span class="math inline">\(\{1\}\)</span> and <span class="math inline">\(A\)</span> solves consensus, then by the validity property both must have, by round <span class="math inline">\(r\)</span>, decided <span class="math inline">\(\{1\}\)</span>. This is shown in Fig. <a href="#fig:exec-alpha">3</a> as execution <span class="math inline">\(\alpha\)</span>.</p>
-<div class="figure" style="text-align: center"><span id="fig:exec-alpha"></span>
-<img src="/img/posts/2020-06-06-simple-consensus/exec-alpha.png" alt="Executions $\alpha$ and $\alpha^{\prime}$, with decision by round $r$." width="340px" />
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:exec-alpha"></span>
+<img src="../../../../../../../img/posts/2020-06-06-simple-consensus/exec-alpha.png" alt="Executions $\alpha$ and $\alpha^{\prime}$, with decision by round $r$." width="340px" />
 <p class="caption">
 Figure 3: Executions <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\alpha^{\prime}\)</span>, with decision by round <span class="math inline">\(r\)</span>.
 </p>
@@ -70,8 +67,8 @@ Figure 3: Executions <span class="math inline">\(\alpha\)</span> and <span class
 <p>Now comes the interesting part. If our network channel is unreliable, this means that the last message in <span class="math inline">\(\alpha\)</span> may have failed to be delivered, leading to alternative execution <span class="math inline">\(\alpha^{\prime}\)</span>, also shown in Fig. <a href="#fig:exec-alpha">3</a>. Now note that since <span class="math inline">\(p_1\)</span> receives the exact same set of messages in <span class="math inline">\(\alpha^{\prime}\)</span> as it did in <span class="math inline">\(\alpha\)</span>, then <span class="math inline">\(\alpha^{\prime}\)</span> is indistinguishable from <span class="math inline">\(\alpha\)</span> from the point of view of <span class="math inline">\(p_1\)</span>. This means that if <span class="math inline">\(p_1\)</span> decides <span class="math inline">\(\{1\}\)</span> in <span class="math inline">\(\alpha\)</span>, then it must also decide <span class="math inline">\(\{1\}\)</span> in <span class="math inline">\(\alpha^{\prime}\)</span>.</p>
 <p>As for <span class="math inline">\(p_2\)</span>, the execution is different, so it has two options: it either decides <span class="math inline">\(\{0\}\)</span> because of the missing message, or it decides <span class="math inline">\(\{1\}\)</span>. If it decides <span class="math inline">\(\{0\}\)</span>, then the agreement property is violated and <span class="math inline">\(A\)</span> does not solve consensus. It must be, therefore, that <span class="math inline">\(p_2\)</span> also decides <span class="math inline">\(\{1\}\)</span>.</p>
 <p>From here, we can apply this procedure recursively until we peel off every single message exchange in <span class="math inline">\(\alpha\)</span>, getting to execution <span class="math inline">\(\alpha_{11}\)</span> (Fig. <a href="#fig:alpha-empty">4</a>) where both processes still have to decide <span class="math inline">\(\{1\}\)</span>, even though no messages have been delivered. We can now march towards the contradiction.</p>
-<div class="figure" style="text-align: center"><span id="fig:alpha-empty"></span>
-<img src="/img/posts/2020-06-06-simple-consensus/contradiction.png" alt="Executions $\alpha_{11}$, $\alpha_{10}$, and $\alpha_{00}$. " width="500px" />
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:alpha-empty"></span>
+<img src="../../../../../../../img/posts/2020-06-06-simple-consensus/contradiction.png" alt="Executions $\alpha_{11}$, $\alpha_{10}$, and $\alpha_{00}$. " width="500px" />
 <p class="caption">
 Figure 4: Executions <span class="math inline">\(\alpha_{11}\)</span>, <span class="math inline">\(\alpha_{10}\)</span>, and <span class="math inline">\(\alpha_{00}\)</span>.
 </p>
@@ -80,13 +77,13 @@ Figure 4: Executions <span class="math inline">\(\alpha_{11}\)</span>, <span cla
 <p>But now look at execution <span class="math inline">\(\alpha_{00}\)</span>, in which both <span class="math inline">\(p_1\)</span> and <span class="math inline">\(p_2\)</span> start with <span class="math inline">\(\{0\}\)</span>. Clearly, <span class="math inline">\(\alpha_{00}\)</span> is indistinguishable from <span class="math inline">\(\alpha_{10}\)</span> from the point of view of <span class="math inline">\(p_2\)</span>, so it must decide <span class="math inline">\(\{1\}\)</span>. But this violates validity, which states that if all processes start with <span class="math inline">\(v\)</span> (<span class="math inline">\(\{0\}\)</span>, in this case), then <span class="math inline">\(v\)</span> is the only possible decision value: a contradiction. <span class="math inline">\(\blacksquare\)</span></p>
 <p>The key to the impossibility result lies in the requirement that the algorithm terminates despite the loss of arbitrarily many messages. Indeed, if we were willing to give up termination, then the finitely numbered round <span class="math inline">\(r\)</span> upon which our proof hinges would no longer exist, and the result would fall apart. But giving up termination does not seem like such a great idea either - how is an algorithm that is not guaranteed to terminate of any use?</p>
 <p>Again, the key here is that reliability issues tend to be <em>temporary</em>; e.g., you can usually overcome a transiently faulty channel by retrying a transmission enough times. Even more serious issues, such as network partitions, are usually fixed eventually. What happens in practice, then, is that consensus algorithms are designed so that they give up progress guarantees (or rather, <a href="https://en.wikipedia.org/wiki/Liveness"><em>liveness</em></a> guarantees) as long as faults are happening, but resume making progress once faulty behavior subsides, and eventually terminate correctly as long as: <em>i)</em> faults do not keep occurring “incessantly”<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a>; and <em>ii)</em> the faults that do occur do not extend beyond the fault assumptions made by the algorithm. One of the most iconic of these algorithms is <a href="https://en.wikipedia.org/wiki/Paxos_(computer_science)">Paxos</a>, which I will talk about in a future post.</p>
-<div id="refs" class="references">
-<div id="ref-lynch-96">
-<p>[1] N. Lynch, <em>Distributed algorithms</em>. Morgan Kaufmann, 1996.</p>
+<div id="refs" class="references csl-bib-body">
+<div id="ref-lynch-96" class="csl-entry">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">N. Lynch, <em>Distributed algorithms</em>. Morgan Kaufmann, 1996.</div>
 </div>
 </div>
 </div>
-<div class="footnotes">
+<div class="footnotes footnotes-end-of-document">
 <hr />
 <ol>
 <li id="fn1"><p>I am simplifying things: distributed commit also cares about faulty processes and what their decision values are. We are not even considering that processes can fail.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
