@@ -76,7 +76,7 @@ Although I have done my best to try to interpret what authors were trying to cal
 
 S/Kademlia introduces protection against Sybil attacks by means of two distinct crypto puzzles. These are shown in Fig. \@ref(fig:puzzles), which is taken from the paper [@baumgart-07]. The first puzzle -- referred to as the "static" puzzle -- constrains the node to find a public key whose hash starts with $c_1$ zeroes. Then a second crypto puzzle -- referred to as the "dynamic" puzzle -- forces the node to find a number $x$ such that the hash of $\text{node_id} \oplus x$ starts with $c_2$ zeroes, where $\oplus$ is the XOR of the binary representation of both numbers. 
 
-Both puzzles ensure that it is not easy to create a node id and, although it is clear that the static puzzle needs to be run for a node key pair to be created created, it is unclear when and now the second puzzle fits into the bigger picture.
+Both puzzles ensure that it is not easy to create node ids; i.e., it is not easy to create Sybil identities, and although it is clear that the static puzzle needs to be run when a new node id is created, it is unclear when and now the second puzzle fits into the bigger picture.
 
 ```{r puzzles, fig.cap='Static (left) and dynamic (right) crypto puzzles', out.width='80%', echo=FALSE, fig.align='center'}
 knitr::include_graphics('/img/posts/2023-07-24-secure-kademlia/crypto-puzzles.png', error = FALSE)
@@ -86,7 +86,7 @@ knitr::include_graphics('/img/posts/2023-07-24-secure-kademlia/crypto-puzzles.pn
 
 S/Kademlia also introduces the notion of sibling lists, which point to nodes that replicate a key-value pair. Unlike Kademlia, S/Kademlia has a separate parameter $s$ for siblings so that the size of the replication set for a key-value pair is different from the parameter $k$, which is used for routing redundancy (i.e., in Kademlia, $s = k$).
 
-One of the goals here is to simplify the $k$-bucket splitting rules. Kademlia uses a dynamic binary whose leaves are $k$-buckets. A $k$-bucket gets split whenever a new contact comes in a full $k$-bucket which contains the node's own id. The problem is with unbalanced DHTs, like the one in Fig. \@ref(fig:unbalanced) (a).
+One of the goals here is to simplify the $k$-bucket splitting rules. Kademlia uses a dynamic binary tree whose leaves are $k$-buckets. A $k$-bucket gets split whenever a new contact comes in a full $k$-bucket which contains the node's own id. The problem is with unbalanced DHTs, like the one in Fig. \@ref(fig:unbalanced) (a).
 
 ```{r unbalanced, fig.cap='**(a)** non-uniform DHT and **(b)** Routing table at $0000$ after all nodes join.', echo=FALSE, fig.align='center'}
 knitr::include_graphics('/img/posts/2023-07-24-secure-kademlia/unbalanced-dht.png', error = FALSE)
