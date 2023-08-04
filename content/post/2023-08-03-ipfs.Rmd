@@ -176,7 +176,7 @@ If content is pinned, then the peers pinning it must republish their provider re
 
 **Shall we publish provider records to all blocks in the DHT, or every single one of them?**
 
-Note that so far we have not said anything about which part of the Merkle DAG gets published in the provider record. This is because that is a decision of the peer. By default, for instance, Kubo (the IPFS Go Client) [will index **every single CID in the DAG**](https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy) into the DHT.
+Note that so far we have not said anything about which part of the Merkle DAG gets published in the provider record. This is because that is a decision made by the peer. By default, however, Kubo (a popular IPFS client written in Go) [will index **every single CID in the DAG**](https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy) into the DHT.
 
 ## Retrieving Content 
 

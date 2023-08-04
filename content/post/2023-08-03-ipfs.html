@@ -410,7 +410,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ol>
 <p>If content is pinned, then the peers pinning it must republish their provider records for as long as the pin holds. Unpinned content is cached and served until the node runs out of storage, at which point such data might be garbage-collected and can no longer be served. It is unclear to me then if peers will actively attempt to remove their provider records from the DHT in the event of garbage collection happening, or if IPFS will simply allow the lease to expire at the risk of having peers contacted for content they no longer hold.</p>
 <p><strong>Shall we publish provider records to all blocks in the DHT, or every single one of them?</strong></p>
-<p>Note that so far we have not said anything about which part of the Merkle DAG gets published in the provider record. This is because that is a decision of the peer. By default, for instance, Kubo (the IPFS Go Client) <a href="https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy">will index <strong>every single CID in the DAG</strong></a> into the DHT.</p>
+<p>Note that so far we have not said anything about which part of the Merkle DAG gets published in the provider record. This is because that is a decision made by the peer. By default, however, Kubo (a popular IPFS client written in Go) <a href="https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy">will index <strong>every single CID in the DAG</strong></a> into the DHT.</p>
 </div>
 <div id="retrieving-content" class="section level2">
 <h2>Retrieving Content</h2>
