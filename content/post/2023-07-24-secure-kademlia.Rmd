@@ -102,8 +102,4 @@ knitr::include_graphics('/img/posts/2023-07-24-secure-kademlia/relaxed-splitting
 
 Authors argue that this is complex and unnecessary, and that using a sibling list of size $s$ makes things simpler as it does not require having relaxed bucket splits. They therefore adopt a single splitting rule, and do away with the buckets in the $[0, 2^{i-1})$ interval entirely, keeping the sibling list instead.
 
-<to be continued... :-)>
-
-
-
-
+I'll be dismembering the sibling list guarantees some other day. :-)

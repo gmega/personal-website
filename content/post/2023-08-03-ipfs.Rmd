@@ -1,0 +1,190 @@
+---
+title: "The InterPlanetary File System (IPFS)"
+author: "Giuliano Mega"
+date: 2023-08-04T00:00:00
+categories: ["algorithms", "p2p"]
+tags: ["dht", "kademlia", "security"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
+    highlight: pygments
+    
+summary: "I never had the chance to understand how [IPFS](https://ipfs.tech/) -- the magical public network where a bunch of Web3 stuff is stored -- worked until now. Now that I finally have the chance (and the excuse) to look into it, however, I can attempt to answer a number of burning questions I had: 1. who pays for storage in IPFS? Is it free for users or what? 2. How does the process of storing and retrieving a file actually work?"
+    
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(knitrengines)
+```
+
+I never had the chance to understand how [IPFS](https://ipfs.tech/) -- the magical public network where a bunch of Web3 stuff is stored -- worked until now. Now that I finally have the chance (and the excuse) to look into it, however, I can attempt to answer a number of burning questions I had:
+
+1. who pays for storage in IPFS? Is it free for users or what?
+2. How does the process of storing and retrieving a file actually work?
+3. Does it perform competitively (in terms of price **and** QoS) with respect to centralized approaches?
+4. Is it truly decentralized?
+
+I reckon this is probably too much to address at once, so I will focus on (1) and (2), referring the reader to [@trautwein-22] for (3) and (4) (spoiler: it performs relatively well and is more decentralized than I would have guessed. The price part is harder to understand).
+
+# Who is Paying for This?
+
+IPFS is a network of (computer) nodes, so clearly the nodes in the network are storing all the data that gets served. But that does not mean you can simply push a file and people will store it for you. 
+
+**Small Content.** IPFS indexes content by means of a DHT^[Which the whitepaper [@benet-14] states is based on S/Kademlia [but is not](https://github.com/ipfs-inactive/faq/issues/193)]. As is usual with DHTs, all files are assigned to a key, named a CID in IPFS, which is computed by applying a hash function (e.g. SHA-256) to the file's content. The whitepaper [@benet-14] states that small files (< 1KB) get stored directly in the DHT, which would imply that DHT nodes pay for the storage of small content. It would also imply that small content would be guaranteed to have a very high default replication factor (on the order of $20$ peers), which is what IPFS adopts in its Kademlia-flavoured [@maymounkov-02] DHT. Unfortunately, [this is not true](https://github.com/ipfs/kubo/issues/4158)^[Indeed, I wonder if reading the whitepaper these days helps or hurts -- a lot of stuff got dropped or was never implemented at all.], which means that no data ever gets stored in the DHT, only pointers to nodes holding that data. Where does it go then?
+
+**Content Providers.** The key to understanding where data goes in IPFS is understanding that when you participate in the IPFS network, **you** get to decide which files you want to store (and serve), and this is true for everyone else. This means you must either store and serve your files yourself (which is probably not what most people want), or you need to get someone else to do it for you. Getting someone else to do it for you usually involves compensating that someone else (i.e. paying for it).
+
+**Pinning.** The process of getting a node to store your content in a permanent basis and serving it to the network is called _pinning_. IPFS defines a [REST API spec for pinning](https://ipfs.github.io/pinning-services-api-spec/) which storage providers can implement. This means that if you want to pin something to IPFS using a pinning service, you will have to go _i)_ publish your data; _ii)_ pin it through a regular HTTP server, which has a regular DNS binding. There is at least one pinning service which claims to be decentralized^[https://medium.com/aleph-im/pioneering-decentralized-ipfs-pinning-services-fe31d9d5817b] but I have not gone in depth about it.
+
+The pinning API defines endpoints for, well, pinning and unpinning objects. A pin request is a `POST` request with a payload that looks something like:
+
+```{pygments}
+{
+  "cid": "QmCIDToBePinned",
+  "name": "PreciousData.pdf",
+  "origins": [
+    "/ip4/203.0.113.142/tcp/4001/p2p/QmSourcePeerId",
+    "/ip4/203.0.113.114/udp/4001/quic/p2p/QmSourcePeerId"
+  ],
+  "meta": {
+    "app_id": "99986338-1113-4706-8302-4420da6158aa"
+  }
+}
+```
+
+which contains the CID of the data object to be pinned, a name for the pin, a list of origins (which the pin provider may contact to fetch the data), and some arbitrary metadata.
+
+# How does Storage and Retrieval Work?
+
+At a high level, files in IPFS are stored as a bunch of blocks arranged in DAG-like structure. Blocks range in size from $256$KB to $1$MB^[Though, as with most things in IPFS, [it is not entirely clear](https://discuss.ipfs.tech/t/what-is-the-maximum-ipfs-block-size/12453) that this is the limit, with some people claiming having seen maximum block sizes of up to $4$MB (as of 2021).]. We discuss _how_ data is laid out as DAGs, as well as the process for publishing and retrieving data, next.
+
+## Data Layout and Files
+
+The basic data objects in IPFS are, as we already stated, blocks. A block is represented by a structure called `IPFSObject`:
+
+```{pygments}
+type IPFSObject struct {
+  links []IPFSLink
+  data []byte
+}
+```
+
+It contains an arbitrary payload (`data`) and an array of _links_:
+
+```{pygments}
+type IPFSLink struct {
+  Name string
+  Hash Multihash
+  Size int
+}
+``` 
+
+The astute reader may have noticed that those can function as vertices (`IPFSObject`) and directed edges (`IPFSLink`), and therefore can be used to represent arbitrary graphs, of which DAGs are a subset. 
+
+Instead of going at length about how those are used to represent a file, let let us have a look at a real, somewhat large file in IPFS. The file we are about to inspect represents a public dataset and has about $1$GB in size. We begin by retrieving the block that its CID points too, also known as the file's _root object_ (do try this at home):
+
+```{bash eval=FALSE}
+> ipfs dag get bafybeiftyvcar3vh7zua3xakxkb2h5ppo4giu5f3rkpsqgcfh7n7axxnsa | jq
+
+{
+  "Data": {
+    "/": {
+      "bytes": "CAE"
+    }
+  },
+  "Links": [
+    {
+      "Hash": {
+        "/": "bafybeibgnyqqkmsoogqh2tfsl64eh7hvztffxjh5f3qnizo56arhfikgim"
+      },
+      "Name": "nginx-01-02-2021-bank2-sv15.log.tar.gz",
+      "Tsize": 970991285
+    }
+  ]
+}
+```
+
+As we can see, the root object contains some data (a byte array with `CAE` in it, which IPFS presumably uses to identify that this DAG should be interpreted as a file), and a link with the file's name (`nginx-01-02-2021-bank2-sv15.log.tar.gz`) and a CID of another object. It is interesting to note that the size field in the link (`Tsize`) shows $970\,991\,285$ bytes. Since we know blocks can store data in the ballpark of $1$MB, this means that `Tsize` refers to the accrued size of all blocks in the subdag.
+
+Let us have a look at what this other object contains:
+
+```{bash eval=FALSE}
+> ipfs dag get bafybeibgnyqqkmsoogqh2tfsl64eh7hvztffxjh5f3qnizo56arhfikgim | jq
+
+{
+  "Data": {
+    "/": {
+      # A lot of data...
+      "bytes": "CAIYzuP9zgMggIBAIICAQCCAgEAggIBAIICAQCCAgEAggIBAIICAQ ..."
+    }
+  },
+  "Links": [
+    {
+      "Hash": {
+        "/": "bafkreihqypxauakx5gssoyxcpyynxrlxa7meojzwg4vqj6o32lywm32io4"
+      },
+      "Name": "",
+      "Tsize": 1048576
+    },
+    {
+      "Hash": {
+        "/": "bafkreidnu3d25o7nawjvfyy7dx4z5qs3tb667dl2ahx32ytnj4laza5yu4"
+      },
+      "Name": "",
+      "Tsize": 1048576
+    },
+
+    # ... a very long list of blocks
+
+    {
+      "Hash": {
+        "/": "bafkreiaoonsu6w4qfzpaa7nuh5kjzlbw6snvvv5h5kzux3pesysduuxfme"
+      },
+      "Name": "",
+      "Tsize": 1048576
+    },
+    {
+      "Hash": {
+        "/": "bafkreiazdsmvqjrioya6jm2rjlp5ioas6ykeph2wlccom42fcilqzsva4m"
+      },
+      "Name": "",
+      "Tsize": 1012174
+    }
+  ]
+}
+```
+
+And here things get more familiar: this is basically a list of links to blocks of about $1$MB in size, as well as some data (presumably less than $1$MB) that is packed in the object itself.
+
+**DAGs are "Merkle" DAGs.** Because the hash for each object in the graph is computed taking into account the content of the object itself (`Data`) as well as the hash of the objects they link (`.Links[].Hash` using `jq` notation), this effectively means that the hash of a data object depends on the hashes of its children, making IPFS DAGs "Merkle DAGs". A degenerate dag in this case would be a list, which could be used to store a blockchain-like structure on top of IPFS, though I am not aware of any blockchain built this way.
+
+## Publishing Content
+
+Whenever a peer publishes a new file to IPFS, the data is first transformed into a DAG, and then a _provider record_ containing the peer's address gets pushed into the DHT announcing that the publishing peer is willing to serve that content. As mentioned before, IPFS adopts the original Kademlia replication [@maymounkov-02] parameters and publishes provider records over the $20$ peers closest to the CID id (in XOR distance). 
+
+Such records must be republished every $12$ hours, as otherwise DHT nodes holding provider records discard them. This serves two purposes:
+
+1. it refreshes the number of peers that replicate the record; e.g., if some of the $20$ original peers have left the network or new peers that are now closer to the root object's CID have joined;
+2. it garbage-collects records for peers that no longer wish to serve content.
+
+If content is pinned, then the peers pinning it must republish their provider records for as long as the pin holds. Unpinned content is cached and served until the node runs out of storage, at which point such data might be garbage-collected and can no longer be served. It is unclear to me then if peers will actively attempt to remove their provider records from the DHT in the event of garbage collection happening, or if IPFS will simply allow the lease to expire at the risk of having peers contacted for content they no longer hold.
+
+**Shall we publish provider records to all blocks in the DHT, or every single one of them?**
+
+Note that so far we have not said anything about which part of the Merkle DAG gets published in the provider record. This is because that is a decision of the peer. By default, for instance, Kubo (the IPFS Go Client) [will index **every single CID in the DAG**](https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy) into the DHT.
+
+## Retrieving Content 
+
+Content retrieval is based on BitSwap and somewhat more involved. Because CIDs for child blocks are _not necessarily published on the DHT_, IPFS relies on a combination of block location strategies, and to some extent relies on locality to succeed. The following diagram, taken from [@rocha-21], shows the main location strategies in IPFS.
+
+
+
+
+
+
+

@@ -1,0 +1,442 @@
+---
+title: "The InterPlanetary File System (IPFS)"
+author: "Giuliano Mega"
+date: 2023-08-04T00:00:00
+categories: ["algorithms", "p2p"]
+tags: ["dht", "kademlia", "security"]
+math: true
+
+output:
+  blogdown::html_page:
+    pandoc_args: [ "--csl", "ieee.csl" ]
+    df_print: paged
+    highlight: pygments
+    
+summary: "I never had the chance to understand how [IPFS](https://ipfs.tech/) -- the magical public network where a bunch of Web3 stuff is stored -- worked until now. Now that I finally have the chance (and the excuse) to look into it, however, I can attempt to answer a number of burning questions I had: 1. who pays for storage in IPFS? Is it free for users or what? 2. How does the process of storing and retrieving a file actually work?"
+    
+bibliography: [bibliography.bib]
+link-citations: true
+---
+
+<link href="/rmarkdown-libs/pagedtable/css/pagedtable.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/pagedtable/js/pagedtable.js"></script>
+<style type="text/css">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<p>I never had the chance to understand how <a href="https://ipfs.tech/">IPFS</a> – the magical public network where a bunch of Web3 stuff is stored – worked until now. Now that I finally have the chance (and the excuse) to look into it, however, I can attempt to answer a number of burning questions I had:</p>
+<ol style="list-style-type: decimal">
+<li>who pays for storage in IPFS? Is it free for users or what?</li>
+<li>How does the process of storing and retrieving a file actually work?</li>
+<li>Does it perform competitively (in terms of price <strong>and</strong> QoS) with respect to centralized approaches?</li>
+<li>Is it truly decentralized?</li>
+</ol>
+<p>I reckon this is probably too much to address at once, so I will focus on (1) and (2), referring the reader to <span class="citation"><a href="#ref-trautwein-22">[1]</a></span> for (3) and (4) (spoiler: it performs relatively well and is more decentralized than I would have guessed. The price part is harder to understand).</p>
+<div id="who-is-paying-for-this" class="section level1">
+<h1>Who is Paying for This?</h1>
+<p>IPFS is a network of (computer) nodes, so clearly the nodes in the network are storing all the data that gets served. But that does not mean you can simply push a file and people will store it for you.</p>
+<p><strong>Small Content.</strong> IPFS indexes content by means of a DHT<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>. As is usual with DHTs, all files are assigned to a key, named a CID in IPFS, which is computed by applying a hash function (e.g. SHA-256) to the file’s content. The whitepaper <span class="citation"><a href="#ref-benet-14">[2]</a></span> states that small files (&lt; 1KB) get stored directly in the DHT, which would imply that DHT nodes pay for the storage of small content. It would also imply that small content would be guaranteed to have a very high default replication factor (on the order of <span class="math inline">\(20\)</span> peers), which is what IPFS adopts in its Kademlia-flavoured <span class="citation"><a href="#ref-maymounkov-02">[3]</a></span> DHT. Unfortunately, <a href="https://github.com/ipfs/kubo/issues/4158">this is not true</a><a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a>, which means that no data ever gets stored in the DHT, only pointers to nodes holding that data. Where does it go then?</p>
+<p><strong>Content Providers.</strong> The key to understanding where data goes in IPFS is understanding that when you participate in the IPFS network, <strong>you</strong> get to decide which files you want to store (and serve), and this is true for everyone else. This means you must either store and serve your files yourself (which is probably not what most people want), or you need to get someone else to do it for you. Getting someone else to do it for you usually involves compensating that someone else (i.e. paying for it).</p>
+<p><strong>Pinning.</strong> The process of getting a node to store your content in a permanent basis and serving it to the network is called <em>pinning</em>. IPFS defines a <a href="https://ipfs.github.io/pinning-services-api-spec/">REST API spec for pinning</a> which storage providers can implement. This means that if you want to pin something to IPFS using a pinning service, you will have to go <em>i)</em> publish your data; <em>ii)</em> pin it through a regular HTTP server, which has a regular DNS binding. There is at least one pinning service which claims to be decentralized<a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a> but I have not gone in depth about it.</p>
+<p>The pinning API defines endpoints for, well, pinning and unpinning objects. A pin request is a <code>POST</code> request with a payload that looks something like:</p>
+<style>
+.highlight .hll { background-color: #ffffcc }
+.highlight  { background: #f8f8f8; }
+.highlight .c { color: #408080; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #FF0000 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666666 } /* Operator */
+.highlight .cm { color: #408080; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #BC7A00 } /* Comment.Preproc */
+.highlight .c1 { color: #408080; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #408080; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .gr { color: #FF0000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #00A000 } /* Generic.Inserted */
+.highlight .go { color: #808080 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #0040D0 } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #7D9029 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #0000FF; font-weight: bold } /* Name.Class */
+.highlight .no { color: #880000 } /* Name.Constant */
+.highlight .nd { color: #AA22FF } /* Name.Decorator */
+.highlight .ni { color: #999999; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #D2413A; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #0000FF } /* Name.Function */
+.highlight .nl { color: #A0A000 } /* Name.Label */
+.highlight .nn { color: #0000FF; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #AA22FF; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #bbbbbb } /* Text.Whitespace */
+.highlight .mf { color: #666666 } /* Literal.Number.Float */
+.highlight .mh { color: #666666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666666 } /* Literal.Number.Oct */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #BB6622; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #BB6688; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #BB6688 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .il { color: #666666 } /* Literal.Number.Integer.Long */
+</style>
+<div class="highlight">
+<pre><span></span>{
+  &quot;cid&quot;: &quot;QmCIDToBePinned&quot;,
+  &quot;name&quot;: &quot;PreciousData.pdf&quot;,
+  &quot;origins&quot;: [
+    &quot;/ip4/203.0.113.142/tcp/4001/p2p/QmSourcePeerId&quot;,
+    &quot;/ip4/203.0.113.114/udp/4001/quic/p2p/QmSourcePeerId&quot;
+  ],
+  &quot;meta&quot;: {
+    &quot;app_id&quot;: &quot;99986338-1113-4706-8302-4420da6158aa&quot;
+  }
+}
+</pre>
+</div>
+<p>which contains the CID of the data object to be pinned, a name for the pin, a list of origins (which the pin provider may contact to fetch the data), and some arbitrary metadata.</p>
+</div>
+<div id="how-does-storage-and-retrieval-work" class="section level1">
+<h1>How does Storage and Retrieval Work?</h1>
+<p>At a high level, files in IPFS are stored as a bunch of blocks arranged in DAG-like structure. Blocks range in size from <span class="math inline">\(256\)</span>KB to <span class="math inline">\(1\)</span>MB<a href="#fn4" class="footnote-ref" id="fnref4"><sup>4</sup></a>. We discuss <em>how</em> data is laid out as DAGs, as well as the process for publishing and retrieving data, next.</p>
+<div id="data-layout-and-files" class="section level2">
+<h2>Data Layout and Files</h2>
+<p>The basic data objects in IPFS are, as we already stated, blocks. A block is represented by a structure called <code>IPFSObject</code>:</p>
+<style>
+.highlight .hll { background-color: #ffffcc }
+.highlight  { background: #f8f8f8; }
+.highlight .c { color: #408080; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #FF0000 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666666 } /* Operator */
+.highlight .cm { color: #408080; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #BC7A00 } /* Comment.Preproc */
+.highlight .c1 { color: #408080; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #408080; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .gr { color: #FF0000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #00A000 } /* Generic.Inserted */
+.highlight .go { color: #808080 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #0040D0 } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #7D9029 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #0000FF; font-weight: bold } /* Name.Class */
+.highlight .no { color: #880000 } /* Name.Constant */
+.highlight .nd { color: #AA22FF } /* Name.Decorator */
+.highlight .ni { color: #999999; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #D2413A; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #0000FF } /* Name.Function */
+.highlight .nl { color: #A0A000 } /* Name.Label */
+.highlight .nn { color: #0000FF; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #AA22FF; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #bbbbbb } /* Text.Whitespace */
+.highlight .mf { color: #666666 } /* Literal.Number.Float */
+.highlight .mh { color: #666666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666666 } /* Literal.Number.Oct */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #BB6622; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #BB6688; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #BB6688 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .il { color: #666666 } /* Literal.Number.Integer.Long */
+</style>
+<div class="highlight">
+<pre><span></span>type IPFSObject struct {
+  links []IPFSLink
+  data []byte
+}
+</pre>
+</div>
+<p>It contains an arbitrary payload (<code>data</code>) and an array of <em>links</em>:</p>
+<style>
+.highlight .hll { background-color: #ffffcc }
+.highlight  { background: #f8f8f8; }
+.highlight .c { color: #408080; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #FF0000 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666666 } /* Operator */
+.highlight .cm { color: #408080; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #BC7A00 } /* Comment.Preproc */
+.highlight .c1 { color: #408080; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #408080; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .gr { color: #FF0000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #00A000 } /* Generic.Inserted */
+.highlight .go { color: #808080 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #0040D0 } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #7D9029 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #0000FF; font-weight: bold } /* Name.Class */
+.highlight .no { color: #880000 } /* Name.Constant */
+.highlight .nd { color: #AA22FF } /* Name.Decorator */
+.highlight .ni { color: #999999; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #D2413A; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #0000FF } /* Name.Function */
+.highlight .nl { color: #A0A000 } /* Name.Label */
+.highlight .nn { color: #0000FF; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #AA22FF; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #bbbbbb } /* Text.Whitespace */
+.highlight .mf { color: #666666 } /* Literal.Number.Float */
+.highlight .mh { color: #666666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666666 } /* Literal.Number.Oct */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #BB6622; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #BB6688; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #BB6688 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .il { color: #666666 } /* Literal.Number.Integer.Long */
+</style>
+<div class="highlight">
+<pre><span></span>type IPFSLink struct {
+  Name string
+  Hash Multihash
+  Size int
+}
+</pre>
+</div>
+<p>The astute reader may have noticed that those can function as vertices (<code>IPFSObject</code>) and directed edges (<code>IPFSLink</code>), and therefore can be used to represent arbitrary graphs, of which DAGs are a subset.</p>
+<p>Instead of going at length about how those are used to represent a file, let let us have a look at a real, somewhat large file in IPFS. The file we are about to inspect represents a public dataset and has about <span class="math inline">\(1\)</span>GB in size. We begin by retrieving the block that its CID points too, also known as the file’s <em>root object</em> (do try this at home):</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="op">&gt;</span> ipfs <span class="ex">dag</span> get bafybeiftyvcar3vh7zua3xakxkb2h5ppo4giu5f3rkpsqgcfh7n7axxnsa <span class="kw">|</span> <span class="ex">jq</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="kw">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  <span class="st">&quot;Data&quot;</span><span class="ex">:</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="st">&quot;/&quot;</span><span class="ex">:</span> {</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>      <span class="st">&quot;bytes&quot;</span><span class="ex">:</span> <span class="st">&quot;CAE&quot;</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    <span class="kw">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>  <span class="er">}</span><span class="ex">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>  <span class="st">&quot;Links&quot;</span><span class="ex">:</span> [</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="kw">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>      <span class="st">&quot;Hash&quot;</span><span class="ex">:</span> {</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>        <span class="st">&quot;/&quot;</span><span class="ex">:</span> <span class="st">&quot;bafybeibgnyqqkmsoogqh2tfsl64eh7hvztffxjh5f3qnizo56arhfikgim&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>      <span class="ex">},</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>      <span class="st">&quot;Name&quot;</span><span class="ex">:</span> <span class="st">&quot;nginx-01-02-2021-bank2-sv15.log.tar.gz&quot;</span>,</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>      <span class="st">&quot;Tsize&quot;</span><span class="ex">:</span> 970991285</span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>    <span class="kw">}</span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>  <span class="ex">]</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="er">}</span></span></code></pre></div>
+<p>As we can see, the root object contains some data (a byte array with <code>CAE</code> in it, which IPFS presumably uses to identify that this DAG should be interpreted as a file), and a link with the file’s name (<code>nginx-01-02-2021-bank2-sv15.log.tar.gz</code>) and a CID of another object. It is interesting to note that the size field in the link (<code>Tsize</code>) shows <span class="math inline">\(970\,991\,285\)</span> bytes. Since we know blocks can store data in the ballpark of <span class="math inline">\(1\)</span>MB, this means that <code>Tsize</code> refers to the accrued size of all blocks in the subdag.</p>
+<p>Let us have a look at what this other object contains:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="op">&gt;</span> ipfs <span class="ex">dag</span> get bafybeibgnyqqkmsoogqh2tfsl64eh7hvztffxjh5f3qnizo56arhfikgim <span class="kw">|</span> <span class="ex">jq</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="kw">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="st">&quot;Data&quot;</span><span class="ex">:</span> {</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>    <span class="st">&quot;/&quot;</span><span class="ex">:</span> {</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>      <span class="co"># A lot of data...</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>      <span class="st">&quot;bytes&quot;</span><span class="ex">:</span> <span class="st">&quot;CAIYzuP9zgMggIBAIICAQCCAgEAggIBAIICAQCCAgEAggIBAIICAQ ...&quot;</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="kw">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="er">}</span><span class="ex">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="st">&quot;Links&quot;</span><span class="ex">:</span> [</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>    <span class="kw">{</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>      <span class="st">&quot;Hash&quot;</span><span class="ex">:</span> {</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>        <span class="st">&quot;/&quot;</span><span class="ex">:</span> <span class="st">&quot;bafkreihqypxauakx5gssoyxcpyynxrlxa7meojzwg4vqj6o32lywm32io4&quot;</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>      <span class="ex">},</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>      <span class="st">&quot;Name&quot;</span><span class="ex">:</span> <span class="st">&quot;&quot;</span>,</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>      <span class="st">&quot;Tsize&quot;</span><span class="ex">:</span> 1048576</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>    <span class="ex">},</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>    <span class="kw">{</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>      <span class="st">&quot;Hash&quot;</span><span class="ex">:</span> {</span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>        <span class="st">&quot;/&quot;</span><span class="ex">:</span> <span class="st">&quot;bafkreidnu3d25o7nawjvfyy7dx4z5qs3tb667dl2ahx32ytnj4laza5yu4&quot;</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>      <span class="ex">},</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>      <span class="st">&quot;Name&quot;</span><span class="ex">:</span> <span class="st">&quot;&quot;</span>,</span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>      <span class="st">&quot;Tsize&quot;</span><span class="ex">:</span> 1048576</span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>    <span class="ex">},</span></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>    <span class="co"># ... a very long list of blocks</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>    <span class="kw">{</span></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>      <span class="st">&quot;Hash&quot;</span><span class="ex">:</span> {</span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>        <span class="st">&quot;/&quot;</span><span class="ex">:</span> <span class="st">&quot;bafkreiaoonsu6w4qfzpaa7nuh5kjzlbw6snvvv5h5kzux3pesysduuxfme&quot;</span></span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>      <span class="ex">},</span></span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>      <span class="st">&quot;Name&quot;</span><span class="ex">:</span> <span class="st">&quot;&quot;</span>,</span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>      <span class="st">&quot;Tsize&quot;</span><span class="ex">:</span> 1048576</span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>    <span class="ex">},</span></span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>    <span class="kw">{</span></span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>      <span class="st">&quot;Hash&quot;</span><span class="ex">:</span> {</span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>        <span class="st">&quot;/&quot;</span><span class="ex">:</span> <span class="st">&quot;bafkreiazdsmvqjrioya6jm2rjlp5ioas6ykeph2wlccom42fcilqzsva4m&quot;</span></span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>      <span class="ex">},</span></span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a>      <span class="st">&quot;Name&quot;</span><span class="ex">:</span> <span class="st">&quot;&quot;</span>,</span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a>      <span class="st">&quot;Tsize&quot;</span><span class="ex">:</span> 1012174</span>
+<span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a>    <span class="kw">}</span></span>
+<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a>  <span class="ex">]</span></span>
+<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a><span class="kw">}</span></span></code></pre></div>
+<p>And here things get more familiar: this is basically a list of links to blocks of about <span class="math inline">\(1\)</span>MB in size, as well as some data (presumably less than <span class="math inline">\(1\)</span>MB) that is packed in the object itself.</p>
+<p><strong>DAGs are “Merkle” DAGs.</strong> Because the hash for each object in the graph is computed taking into account the content of the object itself (<code>Data</code>) as well as the hash of the objects they link (<code>.Links[].Hash</code> using <code>jq</code> notation), this effectively means that the hash of a data object depends on the hashes of its children, making IPFS DAGs “Merkle DAGs”. A degenerate dag in this case would be a list, which could be used to store a blockchain-like structure on top of IPFS, though I am not aware of any blockchain built this way.</p>
+</div>
+<div id="publishing-content" class="section level2">
+<h2>Publishing Content</h2>
+<p>Whenever a peer publishes a new file to IPFS, the data is first transformed into a DAG, and then a <em>provider record</em> containing the peer’s address gets pushed into the DHT announcing that the publishing peer is willing to serve that content. As mentioned before, IPFS adopts the original Kademlia replication <span class="citation"><a href="#ref-maymounkov-02">[3]</a></span> parameters and publishes provider records over the <span class="math inline">\(20\)</span> peers closest to the CID id (in XOR distance).</p>
+<p>Such records must be republished every <span class="math inline">\(12\)</span> hours, as otherwise DHT nodes holding provider records discard them. This serves two purposes:</p>
+<ol style="list-style-type: decimal">
+<li>it refreshes the number of peers that replicate the record; e.g., if some of the <span class="math inline">\(20\)</span> original peers have left the network or new peers that are now closer to the root object’s CID have joined;</li>
+<li>it garbage-collects records for peers that no longer wish to serve content.</li>
+</ol>
+<p>If content is pinned, then the peers pinning it must republish their provider records for as long as the pin holds. Unpinned content is cached and served until the node runs out of storage, at which point such data might be garbage-collected and can no longer be served. It is unclear to me then if peers will actively attempt to remove their provider records from the DHT in the event of garbage collection happening, or if IPFS will simply allow the lease to expire at the risk of having peers contacted for content they no longer hold.</p>
+<p><strong>Shall we publish provider records to all blocks in the DHT, or every single one of them?</strong></p>
+<p>Note that so far we have not said anything about which part of the Merkle DAG gets published in the provider record. This is because that is a decision of the peer. By default, for instance, Kubo (the IPFS Go Client) <a href="https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy">will index <strong>every single CID in the DAG</strong></a> into the DHT.</p>
+</div>
+<div id="retrieving-content" class="section level2">
+<h2>Retrieving Content</h2>
+<p>Content retrieval is based on BitSwap and somewhat more involved. Because CIDs for child blocks are <em>not necessarily published on the DHT</em>, IPFS relies on a combination of block location strategies, and to some extent relies on locality to succeed. The following diagram, taken from <span class="citation"><a href="#ref-rocha-21">[4]</a></span>, shows the main location strategies in IPFS.</p>
+<div id="refs" class="references csl-bib-body">
+<div id="ref-trautwein-22" class="csl-entry">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">D. Trautwein <em>et al.</em>, <span>“<a href="https://doi.org/10.1145/3544216.3544232">Design and evaluation of IPFS: A storage layer for the decentralized web</a>,”</span> in <em>Proc. Of the ACM SIGCOMM’22</em>, 2022.</div>
+</div>
+<div id="ref-benet-14" class="csl-entry">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">J. Benet, <span>“<a href="http://arxiv.org/abs/1407.3561"><span>IPFS</span> - content addressed, versioned, <span>P2P</span> file system</a>,”</span> <em>CoRR</em>, vol. abs/1407.3561, 2014.</div>
+</div>
+<div id="ref-maymounkov-02" class="csl-entry">
+<div class="csl-left-margin">[3] </div><div class="csl-right-inline">P. Maymounkov and D. Mazières, <span>“<a href="https://doi.org/10.1007/3-540-45748-8_5">Kademlia: A peer-to-peer information system based on the XOR metric</a>,”</span> in <em>Proc of the 2002 IPTPS</em>, 2002, pp. 53–65.</div>
+</div>
+<div id="ref-rocha-21" class="csl-entry">
+<div class="csl-left-margin">[4] </div><div class="csl-right-inline">Y. P. Alfoso de la Rocha David Dias, <span>“<a href="https://research.protocol.ai/publications/accelerating-content-routing-with-bitswap-a-multi-path-file-transfer-protocol-in-ipfs-and-filecoin/">Accelerating content routing with bitswap: A multi-path file transfer protocol in IPFS and filecoin</a>,”</span> in <em>Protocol Labs Research Report</em>.</div>
+</div>
+</div>
+</div>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Which the whitepaper <span class="citation"><a href="#ref-benet-14">[2]</a></span> states is based on S/Kademlia <a href="https://github.com/ipfs-inactive/faq/issues/193">but is not</a><a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>Indeed, I wonder if reading the whitepaper these days helps or hurts – a lot of stuff got dropped or was never implemented at all.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn3"><p><a href="https://medium.com/aleph-im/pioneering-decentralized-ipfs-pinning-services-fe31d9d5817b" class="uri">https://medium.com/aleph-im/pioneering-decentralized-ipfs-pinning-services-fe31d9d5817b</a><a href="#fnref3" class="footnote-back">↩︎</a></p></li>
+<li id="fn4"><p>Though, as with most things in IPFS, <a href="https://discuss.ipfs.tech/t/what-is-the-maximum-ipfs-block-size/12453">it is not entirely clear</a> that this is the limit, with some people claiming having seen maximum block sizes of up to <span class="math inline">\(4\)</span>MB (as of 2021).<a href="#fnref4" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
