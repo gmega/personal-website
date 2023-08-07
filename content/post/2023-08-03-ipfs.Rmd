@@ -22,26 +22,28 @@ link-citations: true
 library(knitrengines)
 ```
 
-I never had the chance to understand how [IPFS](https://ipfs.tech/) -- the magical public network where a bunch of Web3 stuff is stored -- worked until now. Now that I finally have the chance (and the excuse) to look into it, however, I can attempt to answer a number of burning questions I had:
+I never had the chance to understand how [IPFS](https://ipfs.tech/) -- the magical public network where a bunch of Web3 stuff is stored -- worked until now. Now that I do, I will try to answer some of the burning questions I had about it, namely:
 
-1. who pays for storage in IPFS? Is it free for users or what?
-2. How does the process of storing and retrieving a file actually work?
+1. [who pays for storage in IPFS?](#who-pays) Is it free for users or what?
+2. [How does the process of storing and retrieving a file actually work?](#storage-retrieval)
 3. Does it perform competitively (in terms of price **and** QoS) with respect to centralized approaches?
 4. Is it truly decentralized?
 
 I reckon this is probably too much to address at once, so I will focus on (1) and (2), referring the reader to [@trautwein-22] for (3) and (4) (spoiler: it performs relatively well and is more decentralized than I would have guessed. The price part is harder to understand).
 
-# Who is Paying for This?
+# Who is Paying for This? {#who-pays}
 
-IPFS is a network of (computer) nodes, so clearly the nodes in the network are storing all the data that gets served. But that does not mean you can simply push a file and people will store it for you. 
+IPFS is a network of (computer) nodes, so it follows that the nodes in the network are storing and serving all the data. But that does not mean you can simply push a file and people will store or serve it for you. 
 
-**Small Content.** IPFS indexes content by means of a DHT^[Which the whitepaper [@benet-14] states is based on S/Kademlia [but is not](https://github.com/ipfs-inactive/faq/issues/193)]. As is usual with DHTs, all files are assigned to a key, named a CID in IPFS, which is computed by applying a hash function (e.g. SHA-256) to the file's content. The whitepaper [@benet-14] states that small files (< 1KB) get stored directly in the DHT, which would imply that DHT nodes pay for the storage of small content. It would also imply that small content would be guaranteed to have a very high default replication factor (on the order of $20$ peers), which is what IPFS adopts in its Kademlia-flavoured [@maymounkov-02] DHT. Unfortunately, [this is not true](https://github.com/ipfs/kubo/issues/4158)^[Indeed, I wonder if reading the whitepaper these days helps or hurts -- a lot of stuff got dropped or was never implemented at all.], which means that no data ever gets stored in the DHT, only pointers to nodes holding that data. Where does it go then?
+**Small Content.** IPFS indexes content by means of a DHT^[Which the whitepaper [@benet-14] states is based on S/Kademlia [but is not](https://github.com/ipfs-inactive/faq/issues/193)]. As is usual with DHTs, all files are assigned to a key, named a CID in IPFS, which is computed by applying a hash function (e.g. SHA-256) to the file's content. The whitepaper [@benet-14] states that small files (< 1KB) get stored directly in the DHT, which would imply that DHT nodes pay for the storage of small content. It would also imply that small content would be guaranteed to have a very high default replication factor (on the order of $20$ peers), which is what IPFS adopts in its Kademlia-flavoured [@maymounkov-02] DHT. Unfortunately, [this appears not to be true](https://github.com/ipfs/kubo/issues/4158)^[Indeed, I wonder if reading the whitepaper these days helps or hurts -- a lot of stuff got dropped or was never implemented at all.], which means that no data ever gets stored in the DHT, only pointers to nodes holding that data. Where does it go then?
 
 **Content Providers.** The key to understanding where data goes in IPFS is understanding that when you participate in the IPFS network, **you** get to decide which files you want to store (and serve), and this is true for everyone else. This means you must either store and serve your files yourself (which is probably not what most people want), or you need to get someone else to do it for you. Getting someone else to do it for you usually involves compensating that someone else (i.e. paying for it).
 
-**Pinning.** The process of getting a node to store your content in a permanent basis and serving it to the network is called _pinning_. IPFS defines a [REST API spec for pinning](https://ipfs.github.io/pinning-services-api-spec/) which storage providers can implement. This means that if you want to pin something to IPFS using a pinning service, you will have to go _i)_ publish your data; _ii)_ pin it through a regular HTTP server, which has a regular DNS binding. There is at least one pinning service which claims to be decentralized^[https://medium.com/aleph-im/pioneering-decentralized-ipfs-pinning-services-fe31d9d5817b] but I have not gone in depth about it.
+**Pinning.** The process of getting a node to store your content in a permanent basis and serving it to the network is called _pinning_. IPFS defines a [REST API spec for pinning](https://ipfs.github.io/pinning-services-api-spec/) which storage providers can implement. This means that if you want to pin something to IPFS using a pinning service, you will have to: _i)_ publish your data to IPFS yourself; _ii)_ pin it by making a regular HTTP call to a conventional web server, which has a regular DNS domain. Presumably, you must also pay for said service, meaning your HTTP call will probably include an API key or authentication token (not part of the API spec) which you will have to acquire from the provider beforehand. 
 
-The pinning API defines endpoints for, well, pinning and unpinning objects. A pin request is a `POST` request with a payload that looks something like:
+It is somewhat ironic that such a basic workflow for a decentralized platform like IPFS seems to include what is essentially a  Web2 flow in it, particulary when this could be built on top of existing Ethereum infrastructure with blockchain payments and a smart contract instead of a REST API. Pragmatism wins, though, and that is probably what IPFS folks saw as the easiest and simplest for now. There is at least one pinning service, however, which claims to be fully decentralized^[https://medium.com/aleph-im/pioneering-decentralized-ipfs-pinning-services-fe31d9d5817b] but I have not gone in depth about it.
+
+Getting back to the REST API, it defines endpoints for, well, pinning and unpinning objects. A pin request is a `POST` request with a payload that looks something like:
 
 ```{pygments}
 {
@@ -57,9 +59,11 @@ The pinning API defines endpoints for, well, pinning and unpinning objects. A pi
 }
 ```
 
-which contains the CID of the data object to be pinned, a name for the pin, a list of origins (which the pin provider may contact to fetch the data), and some arbitrary metadata.
+which contains the CID of the data object to be pinned, a name for the pin, a list of origins (peers which the pin provider may contact to fetch the data it is supposed to store and serve), and some arbitrary metadata. 
 
-# How does Storage and Retrieval Work?
+Given that we are already using a REST API to set a pin, it seems somewhat inconvenient that you need to specify a list of origins instead of just pushing the file contents directly in the body of the POST requests (or something to that effect). This leaves an important gap in the spec, meaning providers will probably try to fill it with different and non-interoperable approaches.
+
+# How does Storage and Retrieval Work? {#storage-retrieval}
 
 At a high level, files in IPFS are stored as a bunch of blocks arranged in DAG-like structure. Blocks range in size from $256$KB to $1$MB^[Though, as with most things in IPFS, [it is not entirely clear](https://discuss.ipfs.tech/t/what-is-the-maximum-ipfs-block-size/12453) that this is the limit, with some people claiming having seen maximum block sizes of up to $4$MB (as of 2021).]. We discuss _how_ data is laid out as DAGs, as well as the process for publishing and retrieving data, next.
 
@@ -74,7 +78,7 @@ type IPFSObject struct {
 }
 ```
 
-It contains an arbitrary payload (`data`) and an array of _links_:
+Blocks contain an arbitrary payload (`data`) and an array of _links_:
 
 ```{pygments}
 type IPFSLink struct {
@@ -86,7 +90,7 @@ type IPFSLink struct {
 
 The astute reader may have noticed that those can function as vertices (`IPFSObject`) and directed edges (`IPFSLink`), and therefore can be used to represent arbitrary graphs, of which DAGs are a subset. 
 
-Instead of going at length about how those are used to represent a file, let let us have a look at a real, somewhat large file in IPFS. The file we are about to inspect represents a public dataset and has about $1$GB in size. We begin by retrieving the block that its CID points too, also known as the file's _root object_ (do try this at home):
+Instead of going at length about how those are used to represent a file, let us have a look at a real, somewhat large file in IPFS. The file we are about to inspect represents a public dataset and has about $1$GB in size. We begin by retrieving the block that its CID points too, also known as the file's _root object_ (do try this at home):
 
 ```{bash eval=FALSE}
 > ipfs dag get bafybeiftyvcar3vh7zua3xakxkb2h5ppo4giu5f3rkpsqgcfh7n7axxnsa | jq
@@ -111,7 +115,7 @@ Instead of going at length about how those are used to represent a file, let let
 
 As we can see, the root object contains some data (a byte array with `CAE` in it, which IPFS presumably uses to identify that this DAG should be interpreted as a file), and a link with the file's name (`nginx-01-02-2021-bank2-sv15.log.tar.gz`) and a CID of another object. It is interesting to note that the size field in the link (`Tsize`) shows $970\,991\,285$ bytes. Since we know blocks can store data in the ballpark of $1$MB, this means that `Tsize` refers to the accrued size of all blocks in the subdag.
 
-Let us have a look at what this other object contains:
+Let us now examine what the linked object (`bafy ... fikgim`) contains:
 
 ```{bash eval=FALSE}
 > ipfs dag get bafybeibgnyqqkmsoogqh2tfsl64eh7hvztffxjh5f3qnizo56arhfikgim | jq
@@ -165,7 +169,7 @@ And here things get more familiar: this is basically a list of links to blocks o
 
 ## Publishing Content
 
-Whenever a peer publishes a new file to IPFS, the data is first transformed into a DAG, and then a _provider record_ containing the peer's address gets pushed into the DHT announcing that the publishing peer is willing to serve that content. As mentioned before, IPFS adopts the original Kademlia replication [@maymounkov-02] parameters and publishes provider records over the $20$ peers closest to the CID id (in XOR distance). 
+Whenever a peer publishes a new file to IPFS, the data is first transformed into a DAG, and then a _provider record_ containing the peer's address gets pushed into the DHT announcing that the publishing peer is willing to serve that content. As mentioned before, IPFS adopts the original Kademlia replication [@maymounkov-02] parameters and publishes provider records over the $20$ peers closest to the CID (in XOR distance). 
 
 Such records must be republished every $12$ hours, as otherwise DHT nodes holding provider records discard them. This serves two purposes:
 
@@ -180,7 +184,36 @@ Note that so far we have not said anything about which part of the Merkle DAG ge
 
 ## Retrieving Content 
 
-Content retrieval is based on BitSwap and somewhat more involved. Because CIDs for child blocks are _not necessarily published on the DHT_, IPFS relies on a combination of block location strategies, and to some extent relies on locality to succeed. The following diagram, taken from [@rocha-21], shows the main location strategies in IPFS.
+Content retrieval is based on a block exchange protocol named Bitswap [@rocha-21]. Because DHTs are slow, and because CIDs for child blocks are _not necessarily published on the DHT_, IPFS relies on a combination of block location strategies and locality assumptions to be able to download a file correctly and with adequate performance.
+
+### Base Protocol
+
+A download for a file $F$ begins with the downloading peer creating an internal -- empty at first -- _session_ object $S_F$ which tracks information on peers that are likely to have blocks for $F$. The dowloading peer then broadcasts the root CID of $F$ to all of its known neighbors (if any) using a `WANT-HAVE` message. This tells neighbors that the downloading peer wants to have the block with that CID. Known neighbors might be known from past interactions -- i.e., the downloading peer may have downloaded or uploaded blocks to them in the past -- or they may come, from, say, the DHT bootstrap procedure.
+
+Once the broadcast happens, we have two possible cases:
+
+**At least one neighbor has the block.** In that case, at least one neighbor should reply with a `HAVE` message. As soon as a `HAVE` response arrives, the downloading peer adds the responding neighbor to $S_F$ and issues a `WANT-BLOCK` message back, causing the neighbor to respond with the block. Although not explicitly stated, the downloader will likely ask for the block from other neighbors if the first one fails to reply. Similarly, sending the initial `WANT-BLOCK` to a small subset of neighbors instead of just one may reduce the latency for this initial fetch.
+
+**No neighbors have the block.** In this case, Bitswap tries a different location strategy, which can include looking up for provider records for that block in the DHT. Provider records can then be added to $S_F$, and the peer can retry downloading the block from those.
+
+After acquiring the root block, the downloading peer switches to a round-based mode in which it continues the download process by selecting from peers in $S_F$ at random to ask for subsequent blocks instead of broadcasting request to its entire neighborhood, which would be untenable in terms of overhead. The random selection strategy is biased to favour nodes which have provided the most blocks for $F$ (and only for $F$) over the download session.
+
+Note that unless the content is overwhelmingly popular, then it is typically the case that the first step in the download will be a DHT (or DNS) lookup. Also note that if CIDs for child blocks (i.e. blocks that are linked from the root block) are not published to the DHT, then it must be the case that this set of peers _needs to be able to provide the entire file_. And even if CIDs for all blocks _are_ published to the DHT^[Which seems to be the [default behavior for Kubo](https://github.com/ipfs/kubo/blob/master/docs/config.md#reproviderstrategy)], looking them up one-by-one would be extremely slow.
+
+We can say, then, that Bitswap relies on locality to a large extent as it assumes that peers holding the root CID should be holding the entire file, as otherwise it will either not work or work very slowly.
+
+### Neighborhood Expansion and Maintenance Strategies
+
+Because avoiding the DHT is important, Bitswap implements strategies that attempt to increase $S_F$ over time. We briefly touch upon those next.
+
+**Peer Sampling with TTL.** Although Bitswap does not implement explicit peer sampling [@jelasity-04], it does implement something analogous to it by means of a TTL (time-to-live) field on `WANT-*` messages. If the TTL is set to $\geq 1$ by the sender, then neighboring peers which receive the message will forward it to their neighbors as well, effectively doing a biased random walk over $n$ hops (where $n$ is the value of the TTL). This is coupled with a $d$ parameter which tells the peer to which percentage of its neighbors it should forward the message to. These together effectively create a sampling method which will sample the connected component of the network for blocks.
+
+**`WANT` message inspection.** `WANT` messages are inspected opportunistically by peers which then construct a CID-to-peer mapping table referred to as the _peer-block registry_. The peer-block registry can be checked for peers that are known to have asked for the peer in the past. Indeed, in [@rocha-21] authors state that Bitswap sessions will first attempt to send direct `WANT-BLOCK` messages to $n_{pb} = 3$ peers in the peer-block registry, and only fall back to other strategies if those peers respond negatively to the request.
+
+**Pruning.** A peer in $S_F$ is dropped whenever it fails to provide useful blocks for more than a certain number ($16$, again according to [@rocha-21]) of requests. 
+
+And this largely concludes my exploration of IPFS for now. I will probably revisit those subjects in more detail as I work on my own project, particulary shortcomings on the DHT and Bitswap, and its comparison to protocols like [BitTorrent](https://www.bittorrent.org/beps/bep_0052.html).
+
 
 
 
