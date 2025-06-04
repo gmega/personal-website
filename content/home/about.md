@@ -1,6 +1,6 @@
 +++
 # About/Biography widget.
-widget = "about"
+block = "biography"
 active = true
 date = 2016-04-20T00:00:00
 

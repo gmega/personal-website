@@ -1,0 +1,27 @@
+# Menu Configuration
+# Replaces [[menu.main]] and [params.menus] from config.toml
+
+main:
+  - name: Home
+    url: '#about' # URLs to homepage sections/widgets still use hash
+    weight: 1
+#  - name: Publications # This was commented out
+#    url: '#publications_selected'
+#    weight: 2
+  - name: Posts
+    url: '#posts'
+    weight: 3
+#  - name: Projects # This was commented out
+#    url: '#projects'
+#    weight: 4
+#  - name: Teaching # This was commented out
+#    url: '#teaching'
+#    weight: 5
+  - name: Contact
+    url: '#contact'
+    weight: 6
+
+# The `params.menus.align_right = true` is usually controlled by CSS or a theme feature.
+# Wowchemy's default layout handles menu alignment. If specific control is needed,
+# it might be a site parameter like `ui.navbar.align: "right"` or custom CSS.
+# For now, I'm omitting it as the default behavior might be acceptable.

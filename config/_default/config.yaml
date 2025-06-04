@@ -1,0 +1,53 @@
+baseURL: "/" # Changed from baseurl
+title: "Giuliano Mega"
+copyright: "&copy; 2018 Giuliano Mega" # Retain copyright
+# theme: "hugo-academic" # Removed, will use Hugo Modules
+enableEmoji: true
+# footnotereturnlinkcontents: "<sup>^</sup>" # Wowchemy handles this differently or by default
+# ignoreFiles: ["\.Rmd$", "\.Rmarkdown$", "_files$", "_cache$"] # Keep for now, might be default or R specific
+preserveTaxonomyNames: true
+paginate: 10
+defaultContentLanguage: "en"
+# hasCJKLanguage: false # Wowchemy detects this
+# defaultContentLanguageInSubdir: false # Check Wowchemy docs if needed
+enableGitInfo: false # Keep as is
+
+outputs:
+  home:
+    - HTML
+    - CSS # Wowchemy specific, keep for now
+    - RSS
+  section:
+    - HTML
+    - RSS
+
+# Blackfriday is deprecated, Goldmark is default. Remove section.
+# If specific markdown options are needed, they go under markup.goldmark:
+# markup:
+#   goldmark:
+#     renderer:
+#       unsafe: true # Example if HTML passthrough is needed
+
+module:
+  imports:
+    - path: github.com/HugoBlox/hugo-blox-builder/modules/wowchemy-plugin-netlify # If using Netlify
+    - path: github.com/HugoBlox/hugo-blox-builder/modules/wowchemy-plugin-reveal # For reveal.js presentations
+    - path: github.com/HugoBlox/hugo-blox-builder/modules/blox-bootstrap
+
+services:
+  disqus:
+    shortname: "giuliano-mega" # Migrated from disqusShortname
+  googleAnalytics:
+    id: "UA-27452912-2" # Migrated from googleAnalytics
+
+# Taxonomies are usually defined like this in Wowchemy, if non-default names are needed.
+# Keeping the original commented out, as it's not clear if these are active.
+# taxonomies:
+#   tag: tags
+#   category: categories
+#   publication_type: publication_types
+
+languages:
+  en:
+    languageCode: en-us
+    # contentDir: content/en # Uncomment if using multilingual sites with directory structure

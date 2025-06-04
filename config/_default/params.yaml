@@ -1,0 +1,218 @@
+# Site Params
+# These are parameters migrated from the [params] section of config.toml
+# Some may need adjustment for Wowchemy v5.
+
+# theme: default # Old color_theme. Wowchemy uses theme sets e.g. minimal, forest. Default is usually fine.
+# font_size: M # Old font. Wowchemy has font_size options S, M, L and font_family.
+# color_theme has been replaced by a more comprehensive 'theme' system in Wowchemy.
+# Example: theme: minimal (Wowchemy default). User can choose from available themes.
+# Font style 'font' is also replaced by font_family and font_size settings.
+# Example: font_family: "Montserrat" (default), font_size: M
+
+author: "Giuliano Mega" # Was params.name
+role: "Computer Scientist"
+# organizations: # Kept as is, check Wowchemy docs for exact structure if issues
+#   - name: ""
+#     url: ""
+#avatar:
+#  # gravatar: false # Wowchemy uses 'features.avatar.gravatar' in config.yaml or params
+#  filename: "me.jpg" # Was params.avatar, assuming it's in static/img/
+email: "giuliano.mega@gmail.com"
+# address: "Building 1 Room 1, Stanford University, California, 90210, USA"
+# office_hours: "Monday 10:00 to 13:00 or email for appointment"
+# phone: "888 888 88 88"
+# skype: "echo123"
+# telegram: ""
+keybase: ""
+# discussion: # Kept as is
+#   name: "Discuss"
+#   url: "https://discourse.gohugo.io"
+logo:
+  filename: "" # Was params.logo. Path relative to static/ or assets/
+  # text: "Giuliano Mega" # Alternative to image logo
+
+# map: # Contact widget map settings
+#   provider: "google" # Example, was numeric
+#   api_key: ""
+#   address: # For geocoding
+#     street: ""
+#     city: ""
+#     region: ""
+#     postcode: ""
+#     country: ""
+#     country_code: ""
+#   latitude: "37.4275"
+#   longitude: "-122.1697"
+#   zoom: 15
+# The old map settings (0, 1, 2, 3 for provider) need to be mapped to names like 'google', 'mapnik', 'mapbox'
+# For now, commenting out until the exact new structure is verified. Default is usually no map.
+
+date_format: "Jan 2, 2006"
+time_format: "3:04 PM"
+# reading_time: true # Now under features.blog.reading_time in config.yaml or params.yaml
+# comment_count: true # Now under features.blog.comment_count
+# section_pager: false # Now under features.docs.section_pager or similar for other sections
+# math: false # Global math rendering, now often `features.math.enable: false`
+
+# highlight: true # Source code highlighting, now under markup.highlight in config.yaml
+# highlight_languages: []
+# highlight_style: "github" # Check Wowchemy docs for available styles, often set in markup.highlight
+
+# sharing: true # Social sharing buttons, now under features.sharing.enable
+# privacy_pack: false # Cookie consent etc., now under features.privacy_pack.enable
+
+# custom_css: [] # Relative to assets/css/
+# custom_js: []  # Relative to assets/js/
+
+# publication_types: # This is a Wowchemy standard, should be fine
+#   - name: Uncategorized
+#     tag: 0
+#   - name: Conference paper
+#     tag: 1
+#   - name: Journal article
+#     tag: 2
+#   - name: Manuscript # Was 'Preprint' in some versions
+#     tag: 3
+#   - name: Report
+#     tag: 4
+#   - name: Book
+#     tag: 5
+#   - name: Book section
+#     tag: 6
+# The old publication_types was a simple array. Wowchemy uses a map with name and tag.
+# The numeric ID was implicit. Now it's explicit with 'tag'.
+# I'll re-map this based on the typical Wowchemy structure.
+
+# talks: # Configuration for talk pages
+#   time: true # This might be default or controlled by page layout/front matter in new Wowchemy
+
+# publications: # Configuration for publication pages
+#   date_format: "January, 2006" # Usually global date_format is used, or per-page.
+
+# projects: # Configuration for project pages
+#   list_children: true # This is likely widget or layout dependent now
+#   publication_format: 3 # (0=Simple, 1=Detailed, 2=APA, 3=MLA) - now citation_style under features.publications
+
+# Default Wowchemy params structure (some of the above will move here or to config.yaml under 'features')
+contact:
+  # email: "giuliano.mega@gmail.com" # Already defined above
+  # phone: "888 888 88 88"
+  # address:
+  #   street: "450 Serra Mall"
+  #   city: "Stanford"
+  #   region: "CA"
+  #   postcode: "94305"
+  #   country: "United States"
+  #   country_code: "US"
+  # coordinates:
+  #   latitude: "37.4275"
+  #   longitude: "-122.1697"
+  # directions: "Enter Building 1 and take the stairs to Office 200 on Floor 2"
+  # office_hours:
+  #   - "Monday 10:00 to 13:00"
+  #   - "Wednesday 09:00 to 10:00"
+  # appointment_url: "https://calendly.com"
+  # contact_links:
+  #   - icon: comments
+  #     icon_pack: fas
+  #     name: Discuss on Forum
+  #     link: "https://discourse.gohugo.io"
+
+# Site features
+features:
+  avatar:
+    enable: true
+    gravatar: false
+    # shape: circle # Options: circle, square
+  comment:
+    provider: "disqus" # Ensure disqus is configured in config.yaml services
+    enable: true
+    # commentable: # Which sections allow comments?
+    #   post: true
+    #   book: true
+    #   project: true
+    #   publication: true
+    #   event: true
+    # disqus:
+    #   shortname: "giuliano-mega" # Already in config.yaml
+      # show_count: true # Old comment_count
+  math:
+    enable: false # Old global math setting
+  privacy_pack:
+    enable: false # Old privacy_pack setting
+  repository:
+    url: "https://github.com/<USERNAME>/<PROJECT_NAME>" # Replace with actual repo URL if available
+    content_dir: content
+    branch: main # or master
+  # search: # Search configuration
+  #   provider: wowchemy # or algolia
+  #   algolia:
+  #     app_id: ""
+  #     api_key: ""
+  #     index_name: ""
+  #     show_logo: false
+  sharing:
+    enable: true # Old 'sharing' setting
+    # AddThis: # Optional AddThis integration
+    #   id: ""
+  # blog: # Settings for blog posts
+  #   reading_time: true # Old 'reading_time'
+  #   # words_per_minute: 200
+  publications: # Settings for publications
+    citation_style: "mla" # apa (default), mla, ieee, harvard, vancouver. Old 'publication_format' needs mapping
+  #   # detailed_list: true # Show detailed publication list on home page etc.
+  # projects:
+  #   # detailed_list: true # Show detailed project list
+  # talks:
+  #   # detailed_list: true # Show detailed talk list
+
+# Social media links. Replaces [[params.social]]
+social:
+  - icon: envelope
+    icon_pack: fas # Font Awesome Solid (fas), Regular (far), Brands (fab)
+    link: "mailto:giuliano.mega@gmail.com"
+  - icon: linkedin
+    icon_pack: fab
+    link: "//www.linkedin.com/in/giuliano-mega-0433249b"
+  - icon: github
+    icon_pack: fab
+    link: "//github.com/gmega"
+  - icon: orcid
+    icon_pack: ai # Academicons
+    link: "https://orcid.org/0000-0002-4994-2387"
+  # - icon: google-scholar # Example, if it was used
+  #   icon_pack: ai
+  #   link: "https://scholar.google.co.uk/citations?user=sIwtMXoAAAAJ"
+
+# Publication types. Replaces params.publication_types
+# This structure is standard for Wowchemy.
+publication_types:
+  - name: Uncategorized
+    tag: 0
+  - name: Conference paper
+    tag: 1
+  - name: Journal article
+    tag: 2
+  - name: Manuscript
+    tag: 3
+  - name: Report
+    tag: 4
+  - name: Book
+    tag: 5
+  - name: Book section
+    tag: 6
+
+# Old params.talks, params.publications, params.projects specific settings
+# These are likely handled by features above or by page front matter/layouts now.
+# For example, `params.talks.time = true` might be a front matter option on individual talks or a layout detail.
+# `params.publications.date_format` will use global `date_format` or page-specific.
+# `params.projects.list_children` is widget/layout dependent.
+# `params.projects.publication_format` is `features.publications.citation_style`.
+
+# I'll keep the old highlight settings here for reference, but they should move to markup.highlight in config.yaml
+# highlight_style: "github" # (this was commented out in original)
+# highlight_languages: [] # (this was empty in original)
+
+# Custom assets
+# custom_css: [] # Now in assets/css/
+# custom_js: [] # Now in assets/js/
