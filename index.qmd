@@ -20,9 +20,9 @@ listing:
 ![](img/me.jpg){.profile-photo fig-alt="Portrait of Giuliano Mega"}
 
 ::: {.intro-text}
-I'm a computer scientist working on distributed systems and software. I'm interested in how systems behave when they get large, when things fail, and when the elegant idea meets the implementation.
+Hi there! I am a computer scientist with interests in distributed and decentralized computing, AI, and cryptography. I have worked in a wide area of domains, including distributed debugging, fault-tolerant and large-scale computing, data engineering, data science, and machine learning.
 
-This is where I work through questions in public: peer-to-peer networks, algorithms, statistics, and the occasional detour into programming languages. I learn by building things, taking them apart, and writing down what finally makes sense.
+I enjoy studying stuff. I learn by writing and doing, and this is a place I work through questions in public.
 
 [GitHub](https://github.com/gmega) · [Email](mailto:giuliano.mega@gmail.com) · [LinkedIn](https://www.linkedin.com/in/giuliano-mega-0433249b)
 :::
