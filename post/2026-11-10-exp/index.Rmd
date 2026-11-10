@@ -1,7 +1,7 @@
 ---
 title: "Connecting the Exponential and Geometric Distributions"
 date: "2026-11-10"
-description: I have known for a some time that the [geometric](https://en.wikipedia.org/wiki/Geometric_distribution) and [exponential](https://en.wikipedia.org/wiki/Exponential_distribution) distributions are related, with both being the only two memoryless distributions on discrete and continuous time, respectively, and the former being often presented as the discrete counterpart to the former.
+description: I have known for a some time that the [geometric](https://en.wikipedia.org/wiki/Geometric_distribution) and [exponential](https://en.wikipedia.org/wiki/Exponential_distribution) distributions are related, with both being the only two memoryless distributions on discrete and continuous time, respectively, and the former being often presented as the discrete counterpart to the latter.
 categories:
 - basics
 - statistics
@@ -16,7 +16,7 @@ $$
 \newcommand{\expCdf}[1]{F_{\lambda}(#1)}
 \newcommand{\geoCdf}[1]{H_{p}(#1)}
 $$
-I have known for a some time that the [geometric](https://en.wikipedia.org/wiki/Geometric_distribution) and [exponential](https://en.wikipedia.org/wiki/Exponential_distribution) distributions are related, with both being the only two memoryless distributions on discrete and continuous time [@pitman-93], respectively, and the former being often presented as the discrete counterpart to the former.
+I have known for a some time that the [geometric](https://en.wikipedia.org/wiki/Geometric_distribution) and [exponential](https://en.wikipedia.org/wiki/Exponential_distribution) distributions are related, with both being the only two memoryless distributions on discrete and continuous time [@pitman-93], respectively, and the former being often presented as the discrete counterpart to the latter.
 
 In this little writeup, I try to clarify the exact nature of this relationship. In particular, we will take an exponential distribution $\Exp$ with rate parameter $\lambda$ and attempt to discretize it into a geometric distribution $\Geo$ with parameter $p$.
 
