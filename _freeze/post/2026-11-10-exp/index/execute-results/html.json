@@ -1,0 +1,17 @@
+{
+  "hash": "503c9a76848a75053f0d32d4943a0082",
+  "result": {
+    "engine": "knitr",
+    "markdown": "---\ntitle: \"Connecting the Exponential and Geometric Distributions\"\ndate: \"2026-11-10\"\ndescription: I have known for a some time that the [geometric](https://en.wikipedia.org/wiki/Geometric_distribution) and [exponential](https://en.wikipedia.org/wiki/Exponential_distribution) distributions are related, with both being the only two memoryless distributions on discrete and continuous time, respectively, and the former being often presented as the discrete counterpart to the former.\ncategories:\n- basics\n- statistics\nbibliography: ../../references.bib\ncsl: ../../ieee.csl\ntoc: true\n---\n\n$$\n\\newcommand{\\Exp}{\\text{Exp}(\\lambda)}\n\\newcommand{\\Geo}{\\text{Geometric}(p)}\n\\newcommand{\\expCdf}[1]{F_{\\lambda}(#1)}\n\\newcommand{\\geoCdf}[1]{H_{p}(#1)}\n$$\nI have known for a some time that the [geometric](https://en.wikipedia.org/wiki/Geometric_distribution) and [exponential](https://en.wikipedia.org/wiki/Exponential_distribution) distributions are related, with both being the only two memoryless distributions on discrete and continuous time [@pitman-93], respectively, and the former being often presented as the discrete counterpart to the former.\n\nIn this little writeup, I try to clarify the exact nature of this relationship. In particular, we will take an exponential distribution $\\Exp$ with rate parameter $\\lambda$ and attempt to discretize it into a geometric distribution $\\Geo$ with parameter $p$.\n\n**Discretizing.** So, what does \"discretizing\" mean in our context? We start by slicing the positive real numbers into fixed-sized, countably infinitely many intervals $d_i = [(i - 1) \\Delta t, i \\Delta t)$ of length $\\Delta t$ each. Now let $F_{\\lambda}(x)$ and $H_{p}(x)$ be the cumulative distribution functions for $\\Exp$ and $\\Geo$, respectively. Given a rate $\\lambda$, we want to show that there exists a single $p$ such that:\n\n$$\nF_{\\lambda}(d_i) = H_{p}(i)\n$$\n\nfor all $i \\geq 1$. If we can show that, we are effectively demonstrating that the distributions accumulate mass at the same rate, but $H_p$ does so in discrete jumps instead of continuously. \n\nBy construction, we know that:\n\n$$\nF_{\\lambda}(x) = 1 - e^{-\\lambda x} \\qquad\nF_{p}(i) = 1 - (1 - p)^{i}\n$$\nThen:\n\n$$\n1 - (1-p)^i = 1 - e^{\\lambda i\\Delta t} \\iff p = 1 - e^{-\\frac{\\lambda i \\Delta t}{i}} \\overset{*}{\\iff} p = 1 - e^{-\\lambda\\Delta t}\n$$ {#eq-p}\n\nThe most important part here is the starred step (*) showing that the $i$ cancels out, meaning that $p$ is the same for all $i_\\blacksquare$. Let's now plot this out and see how this looks like. We compute the parameter $p$ from $\\lambda$ as in Eq. [-@eq-p] using $\\lambda = 2$, and $\\Delta t = 0.2$:\n\n\n\n\n\n\n\n\n::: {.cell layout-align=\"center\"}\n\n```{.r .cell-code}\nplot_cdfs(\n  cdfs(lambda = 2, delta_t = 0.2, xmax = 4)\n)\n```\n\n::: {.cell-output-display}\n![Cumulative distribution functions for $F_{\\lambda}(x)$ and $H_{p}(x)$ with $\\lambda = 2$, $\\Delta t = 0.2$, $p = 1 - e^{-0.4}$.](index_files/figure-html/fig-cdfs-1.png){#fig-cdfs fig-align='center' width=960}\n:::\n:::\n\n\nAnd we see that, indeed, naming the geometric distribution is a discrete counterpart to the exponential makes sense.",
+    "supporting": [
+      "index_files"
+    ],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}
