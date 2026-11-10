@@ -1,0 +1,50 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - /post/**/*.Rmd
+    - /post/**/*.qmd
+    - /post/**/*.md
+  resources:
+    - /img/
+    - _redirects
+    - "!/public/"
+    - "!/templates/"
+
+website:
+  title: Giuliano Mega
+  site-url: https://www.giulianomega.com
+  description: Notes on distributed systems, software, and understanding how things work.
+  navbar:
+    title: Giuliano Mega
+    right:
+      - text: Writing
+        href: /#writing
+      - icon: github
+        href: https://github.com/gmega
+        aria-label: GitHub
+      - icon: rss
+        href: /index.xml
+        aria-label: RSS feed
+  page-footer:
+    left: "© Giuliano Mega"
+    right:
+      - text: Email
+        href: mailto:giuliano.mega@gmail.com
+      - text: GitHub
+        href: https://github.com/gmega
+  search: true
+
+format:
+  html:
+    theme: [cosmo, styles.scss]
+    lang: en
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    link-external-newwindow: true
+    highlight-style: github
+
+execute:
+  freeze: auto

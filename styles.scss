@@ -1,0 +1,32 @@
+/*-- scss:defaults --*/
+$body-bg: #faf9f6;
+$body-color: #252b32;
+$link-color: #255d83;
+$font-family-sans-serif: system-ui, -apple-system, "Segoe UI", sans-serif;
+$font-size-base: 1.05rem;
+$headings-font-weight: 600;
+$navbar-bg: #faf9f6;
+$navbar-fg: #252b32;
+$code-bg: #efeee9;
+
+/*-- scss:rules --*/
+.navbar { border-bottom: 1px solid #e3e1db; padding-block: 1rem; }
+.navbar-brand { font-weight: 600; letter-spacing: -.025em; }
+main { line-height: 1.75; }
+h1, h2, h3 { letter-spacing: -.035em; }
+h1 { line-height: 1.15; }
+#quarto-content .intro { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: 2rem; align-items: start; font-size: 1.15rem; margin: 1.5rem 0 3.5rem; }
+.intro .profile-photo { width: 10rem; height: 10rem; object-fit: cover; border-radius: 50%; }
+.intro > p, .intro-text > :last-child { margin-bottom: 0; }
+body:has(.intro) main { max-width: 58rem; margin-inline: auto; width: 100%; }
+body:has(.intro) #title-block-header { margin-top: 2.5rem; }
+.quarto-listing-default .quarto-post { border-color: #e3e1db; padding-block: 1.5rem; }
+.quarto-listing-default .listing-title { font-size: 1.25rem; line-height: 1.4; }
+.listing-description { color: #5a626b; }
+.quarto-title-meta, .listing-date { color: #626972; }
+.nav-footer { border-top: 1px solid #e3e1db; }
+pre { border: 1px solid #e3e1db; border-radius: .3rem; }
+@media (max-width: 767px) {
+  #quarto-content .intro { grid-template-columns: 1fr; gap: 1.25rem; font-size: 1.05rem; margin-bottom: 2.5rem; }
+  .quarto-listing-default .quarto-post { gap: .5rem; }
+}

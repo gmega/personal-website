@@ -1,0 +1,13 @@
+---
+title: "A new experiment"
+date: "2026-11-10"
+description: "A sentence about the question this post explores."
+categories: [R]
+draft: true
+---
+
+Write your introduction in Markdown.
+
+```{r}
+plot(cars)
+```
