@@ -1,0 +1,8 @@
+name: personal-website
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - sympy=1.14
+  - ruby=4.0

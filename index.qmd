@@ -1,0 +1,29 @@
+---
+title: Giuliano Mega
+pagetitle: Giuliano Mega — Distributed systems & software
+description: Notes on distributed systems, software, and understanding how things work.
+title-block-banner: false
+toc: false
+page-layout: full
+listing:
+  id: writing
+  contents: /post/*/index.*
+  sort: "date desc"
+  type: default
+  fields: [date, title, description]
+  date-format: "MMM D, YYYY"
+  max-description-length: 190
+  feed: true
+---
+
+::: {.intro #about}
+I'm a computer scientist working on distributed systems and software. I'm interested in how systems behave when they get large, when things fail, and when the elegant idea meets the implementation.
+
+This is where I work through questions in public: peer-to-peer networks, algorithms, statistics, and the occasional detour into programming languages. I learn by building things, taking them apart, and writing down what finally makes sense.
+
+[GitHub](https://github.com/gmega) · [Email](mailto:giuliano.mega@gmail.com) · [LinkedIn](https://www.linkedin.com/in/giuliano-mega-0433249b)
+:::
+
+## Writing {.unnumbered}
+
+Notes, explanations, and experiments. Usually with code.

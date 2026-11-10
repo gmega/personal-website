@@ -1,0 +1,3 @@
+/post/ /#writing 301
+/post/index.xml /index.xml 301
+/post/secure-kademlia/ /post/2023-07-24-secure-kademlia/ 301

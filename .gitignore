@@ -3,3 +3,8 @@ public
 .Rproj.user
 .RData
 .Rhistory
+/.quarto/
+/_site/
+/node_modules/
+
+**/*.quarto_ipynb
